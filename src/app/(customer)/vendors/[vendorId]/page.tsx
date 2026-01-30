@@ -115,6 +115,8 @@ export default function VendorDetailPage() {
       if (response.ok) {
         alert("Added to cart!");
         setCartQuantities({ ...cartQuantities, [productId]: 1 });
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
       } else {
         const error = await response.json();
         alert(error.error?.message || "Failed to add to cart");

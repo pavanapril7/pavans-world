@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { authenticate } from '@/middleware/auth.middleware';
 import { cookies } from 'next/headers';
+import LogoutButton from '@/components/LogoutButton';
 
 export default async function VendorLayout({
   children,
@@ -90,14 +91,7 @@ export default async function VendorLayout({
               <span className="text-sm text-gray-700 mr-4">
                 {authResult.user.firstName} {authResult.user.lastName}
               </span>
-              <form action="/api/auth/logout" method="POST">
-                <button
-                  type="submit"
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Logout
-                </button>
-              </form>
+              <LogoutButton />
             </div>
           </div>
         </div>

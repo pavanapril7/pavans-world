@@ -9,9 +9,11 @@ interface DeliveryHistory {
   orderNumber: string;
   status: string;
   vendor: {
+    id: string;
     businessName: string;
   };
   customer: {
+    id: string;
     firstName: string;
     lastName: string;
   };
@@ -20,7 +22,7 @@ interface DeliveryHistory {
     city: string;
     pincode: string;
   };
-  total: number;
+  total: string | number;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,8 +46,8 @@ export default function DeliveryHistoryPage() {
         throw new Error('Failed to fetch delivery history');
       }
 
-      const data = await response.json();
-      setDeliveries(data.deliveries || []);
+      const result = await response.json();
+      setDeliveries(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

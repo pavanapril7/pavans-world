@@ -41,12 +41,12 @@ export default function ProfilePage() {
         const userResponse = await fetch(`/api/users/${session.user.id}`);
         if (userResponse.ok) {
           const data = await userResponse.json();
-          setProfile(data);
+          setProfile(data.data);
           setFormData({
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            phone: data.phone,
+            firstName: data.data.firstName,
+            lastName: data.data.lastName,
+            email: data.data.email,
+            phone: data.data.phone,
           });
         }
       }

@@ -42,8 +42,8 @@ export default function CartPage() {
       setLoading(true);
       const response = await fetch("/api/cart");
       if (response.ok) {
-        const data = await response.json();
-        setCart(data);
+        const result = await response.json();
+        setCart(result.data);
       } else if (response.status === 404) {
         setCart(null);
       }
@@ -66,6 +66,8 @@ export default function CartPage() {
 
       if (response.ok) {
         fetchCart();
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
       }
     } catch (error) {
       console.error("Failed to update quantity:", error);
@@ -80,6 +82,8 @@ export default function CartPage() {
 
       if (response.ok) {
         fetchCart();
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
       }
     } catch (error) {
       console.error("Failed to remove item:", error);
@@ -94,7 +98,7 @@ export default function CartPage() {
     );
   };
 
-  const formatPrice = (price: number | any) => {
+  const formatPrice = (price: number) => {
     return `₹${Number(price).toFixed(2)}`;
   };
 
@@ -110,7 +114,7 @@ export default function CartPage() {
     );
   }
 
-  if (!cart || cart.items.length === 0) {
+  if (!cart || !cart.items || cart.items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">

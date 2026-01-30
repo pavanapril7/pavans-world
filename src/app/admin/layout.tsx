@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users, Store, MapPin, Tag, BarChart3, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LogoutButton from "@/components/LogoutButton";
 
 export default function AdminLayout({
   children,
@@ -67,6 +68,7 @@ export default function AdminLayout({
                   Profile
                 </Button>
               </Link>
+              <LogoutButton />
             </div>
           </div>
         </div>

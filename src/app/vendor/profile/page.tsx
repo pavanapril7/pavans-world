@@ -58,7 +58,18 @@ export default function VendorProfilePage() {
         throw new Error('No vendor profile found');
       }
       
-      setVendor(userData.data.vendor);
+      // Restructure the data to match the expected interface
+      const vendorWithUser = {
+        ...userData.data.vendor,
+        user: {
+          firstName: userData.data.firstName,
+          lastName: userData.data.lastName,
+          email: userData.data.email,
+          phone: userData.data.phone,
+        },
+      };
+      
+      setVendor(vendorWithUser);
       setFormData({
         businessName: userData.data.vendor.businessName,
         description: userData.data.vendor.description,

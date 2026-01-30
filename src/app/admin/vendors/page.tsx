@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Check, Ban } from 'lucide-react';
+import { Search, Check, Ban, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Vendor {
@@ -47,6 +47,22 @@ export default function AdminVendorsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [serviceAreaFilter, setServiceAreaFilter] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [createFormData, setCreateFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    businessName: '',
+    description: '',
+    categoryId: '',
+    serviceAreaId: '',
+  });
 
   const fetchVendors = useCallback(async () => {
     try {
@@ -148,6 +164,53 @@ export default function AdminVendorsPage() {
     }
   };
 
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCreateFormData({ ...createFormData, password });
+  };
+
+  const handleCreateVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('/api/admin/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createFormData),
+      });
+
+      if (response.ok) {
+        setCreatedCredentials({
+          email: createFormData.email,
+          password: createFormData.password,
+        });
+        setShowCreateForm(false);
+        setCreateFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          password: '',
+          businessName: '',
+          description: '',
+          categoryId: '',
+          serviceAreaId: '',
+        });
+        fetchVendors();
+      } else {
+        const error = await response.json();
+        alert(error.error?.message || 'Failed to create vendor');
+      }
+    } catch (error) {
+      console.error('Failed to create vendor:', error);
+      alert('Failed to create vendor');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -163,7 +226,234 @@ export default function AdminVendorsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Vendor Management</h1>
           <p className="text-gray-600 mt-2">Manage vendors and approvals</p>
         </div>
+        <Button onClick={() => setShowCreateForm(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Vendor
+        </Button>
       </div>
+
+      {/* Credentials Modal */}
+      {createdCredentials && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Vendor Created Successfully!</h3>
+            <p className="text-gray-600 mb-4">
+              Please share these credentials with the vendor. They will need these to log in.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-mono font-semibold text-gray-900">{createdCredentials.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Password</p>
+                <p className="font-mono font-semibold text-gray-900">{createdCredentials.password}</p>
+              </div>
+            </div>
+            <p className="text-sm text-amber-600 mb-4">
+              ⚠️ Make sure to copy these credentials now. You won&apos;t be able to see the password again.
+            </p>
+            <Button
+              onClick={() => setCreatedCredentials(null)}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create Vendor Modal */}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Create New Vendor</h3>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVendor} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={createFormData.firstName}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, firstName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={createFormData.lastName}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, lastName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={createFormData.email}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone *
+                </label>
+                <input
+                  type="tel"
+                  value={createFormData.phone}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, phone: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="+919876543210"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password *
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={createFormData.password}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, password: e.target.value })
+                    }
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    required
+                    minLength={8}
+                  />
+                  <Button type="button" onClick={generatePassword} variant="outline">
+                    Generate
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Minimum 8 characters. Click Generate for a secure password.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Business Name *
+                </label>
+                <input
+                  type="text"
+                  value={createFormData.businessName}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, businessName: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description *
+                </label>
+                <textarea
+                  value={createFormData.description}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={createFormData.categoryId}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, categoryId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Service Area *
+                  </label>
+                  <select
+                    value={createFormData.serviceAreaId}
+                    onChange={(e) =>
+                      setCreateFormData({ ...createFormData, serviceAreaId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    required
+                  >
+                    <option value="">Select Service Area</option>
+                    {serviceAreas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <Button type="submit" className="flex-1">
+                  Create Vendor
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowCreateForm(false)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white shadow rounded-lg p-6">
@@ -332,6 +622,15 @@ export default function AdminVendorsPage() {
                         title="Deactivate"
                       >
                         <Ban className="w-4 h-4 inline" />
+                      </button>
+                    )}
+                    {vendor.status === 'INACTIVE' && (
+                      <button
+                        onClick={() => handleApprove(vendor.id)}
+                        className="text-green-600 hover:text-green-900"
+                        title="Activate"
+                      >
+                        <Check className="w-4 h-4 inline" />
                       </button>
                     )}
                   </td>

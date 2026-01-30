@@ -21,8 +21,23 @@ export default function LoginPage() {
   // OTP login form
   const [otpForm, setOtpForm] = useState({
     phone: "",
-    otp: "",
+    code: "",
   });
+
+  // Helper function to get redirect path based on user role
+  const getRedirectPath = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "/admin/dashboard";
+      case "VENDOR":
+        return "/vendor/dashboard";
+      case "DELIVERY_PARTNER":
+        return "/delivery/available";
+      case "CUSTOMER":
+      default:
+        return "/vendors";
+    }
+  };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +51,9 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        router.push("/vendors");
+        const data = await response.json();
+        const redirectPath = getRedirectPath(data.user.role);
+        router.push(redirectPath);
       } else {
         const error = await response.json();
         alert(error.error?.message || "Login failed");
@@ -87,7 +104,9 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        router.push("/vendors");
+        const data = await response.json();
+        const redirectPath = getRedirectPath(data.user.role);
+        router.push(redirectPath);
       } else {
         const error = await response.json();
         alert(error.error?.message || "OTP verification failed");
@@ -230,9 +249,9 @@ export default function LoginPage() {
                   </label>
                   <input
                     type="text"
-                    value={otpForm.otp}
+                    value={otpForm.code}
                     onChange={(e) =>
-                      setOtpForm({ ...otpForm, otp: e.target.value })
+                      setOtpForm({ ...otpForm, code: e.target.value })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
                     placeholder="000000"
@@ -263,7 +282,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setOtpSent(false);
-                    setOtpForm({ ...otpForm, otp: "" });
+                    setOtpForm({ ...otpForm, code: "" });
                   }}
                   className="w-full text-sm text-blue-600 hover:text-blue-700"
                 >

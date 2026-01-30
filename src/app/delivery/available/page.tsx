@@ -9,23 +9,24 @@ interface DeliveryRequest {
   id: string;
   orderNumber: string;
   vendor: {
+    id: string;
     businessName: string;
     user: {
-      addresses: Array<{
-        street: string;
-        landmark: string;
-        city: string;
-        pincode: string;
-      }>;
+      phone: string;
     };
   };
   deliveryAddress: {
     street: string;
     landmark: string;
     city: string;
+    state?: string;
     pincode: string;
   };
-  total: number;
+  items: Array<{
+    productName: string;
+    quantity: number;
+  }>;
+  total: string | number;
   createdAt: string;
   estimatedDistance?: number;
 }
@@ -50,8 +51,8 @@ export default function AvailableDeliveriesPage() {
         throw new Error('Failed to fetch available deliveries');
       }
 
-      const data = await response.json();
-      setDeliveries(data.deliveries || []);
+      const result = await response.json();
+      setDeliveries(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -149,18 +150,16 @@ export default function AvailableDeliveriesPage() {
               </div>
 
               <div className="space-y-3 mb-4">
-                {/* Pickup Location */}
+                {/* Pickup Location - Vendor Info */}
                 <div className="flex items-start space-x-3">
-                  <MapPin className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <Package className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Pickup</p>
-                    <p className="text-sm text-gray-600">
-                      {delivery.vendor.user.addresses[0]?.street},{' '}
-                      {delivery.vendor.user.addresses[0]?.landmark}
+                    <p className="text-sm font-medium text-gray-900">Pickup from</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {delivery.vendor.businessName}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {delivery.vendor.user.addresses[0]?.city},{' '}
-                      {delivery.vendor.user.addresses[0]?.pincode}
+                      {delivery.vendor.user.phone}
                     </p>
                   </div>
                 </div>
@@ -169,7 +168,7 @@ export default function AvailableDeliveriesPage() {
                 <div className="flex items-start space-x-3">
                   <Navigation className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Delivery</p>
+                    <p className="text-sm font-medium text-gray-900">Deliver to</p>
                     <p className="text-sm text-gray-600">
                       {delivery.deliveryAddress.street},{' '}
                       {delivery.deliveryAddress.landmark}
@@ -180,6 +179,21 @@ export default function AvailableDeliveriesPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Items */}
+                {delivery.items && delivery.items.length > 0 && (
+                  <div className="flex items-start space-x-3">
+                    <Package className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Items</p>
+                      {delivery.items.map((item, idx) => (
+                        <p key={idx} className="text-sm text-gray-600">
+                          {item.quantity}x {item.productName}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {delivery.estimatedDistance && (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">

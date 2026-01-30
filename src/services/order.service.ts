@@ -204,6 +204,11 @@ export class OrderService {
             id: true,
             businessName: true,
             status: true,
+            user: {
+              select: {
+                phone: true,
+              },
+            },
           },
         },
         deliveryPartner: {
@@ -269,6 +274,11 @@ export class OrderService {
             id: true,
             businessName: true,
             status: true,
+            user: {
+              select: {
+                phone: true,
+              },
+            },
           },
         },
         deliveryPartner: {

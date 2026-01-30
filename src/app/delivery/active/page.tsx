@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Package, Navigation, AlertCircle, CheckCircle } from 'lucide-react';
+import {  Package, Navigation, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ActiveDelivery {
@@ -10,34 +10,45 @@ interface ActiveDelivery {
   orderNumber: string;
   status: string;
   vendor: {
+    id: string;
     businessName: string;
     user: {
       phone: string;
-      addresses: Array<{
-        street: string;
-        landmark: string;
-        city: string;
-        pincode: string;
-      }>;
     };
   };
   customer: {
+    id: string;
     firstName: string;
     lastName: string;
     phone: string;
   };
   deliveryAddress: {
+    id: string;
+    userId: string;
+    label: string;
     street: string;
     landmark: string;
     city: string;
+    state: string;
     pincode: string;
+    isDefault: boolean;
+    createdAt: string;
+    updatedAt: string;
   };
-  total: number;
+  total: string | number;
   items: Array<{
     productName: string;
     quantity: number;
   }>;
+  statusHistory?: Array<{
+    id: string;
+    orderId: string;
+    status: string;
+    timestamp: string;
+    notes: string;
+  }>;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function ActiveDeliveriesPage() {
@@ -60,8 +71,8 @@ export default function ActiveDeliveriesPage() {
         throw new Error('Failed to fetch active deliveries');
       }
 
-      const data = await response.json();
-      setDeliveries(data.deliveries || []);
+      const result = await response.json();
+      setDeliveries(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -97,7 +108,7 @@ export default function ActiveDeliveriesPage() {
     try {
       setUpdatingId(deliveryId);
       const response = await fetch(`/api/deliveries/${deliveryId}/issue`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -229,16 +240,11 @@ export default function ActiveDeliveriesPage() {
                 <div className="space-y-3 mb-4">
                   {/* Pickup Location */}
                   <div className="flex items-start space-x-3">
-                    <MapPin className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <Package className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Pickup Location</p>
-                      <p className="text-sm text-gray-600">
-                        {delivery.vendor.user.addresses[0]?.street},{' '}
-                        {delivery.vendor.user.addresses[0]?.landmark}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {delivery.vendor.user.addresses[0]?.city},{' '}
-                        {delivery.vendor.user.addresses[0]?.pincode}
+                      <p className="text-sm font-medium text-gray-900">Pickup from</p>
+                      <p className="text-sm text-gray-900 font-medium">
+                        {delivery.vendor.businessName}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
                         Contact: {delivery.vendor.user.phone}
@@ -250,7 +256,7 @@ export default function ActiveDeliveriesPage() {
                   <div className="flex items-start space-x-3">
                     <Navigation className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Delivery Location</p>
+                      <p className="text-sm font-medium text-gray-900">Deliver to</p>
                       <p className="text-sm text-gray-600">
                         {delivery.deliveryAddress.street},{' '}
                         {delivery.deliveryAddress.landmark}

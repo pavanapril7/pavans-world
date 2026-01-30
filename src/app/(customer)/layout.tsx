@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ShoppingCart, User, Package } from "lucide-react";
+import { Package, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LogoutButton from "@/components/LogoutButton";
+import CartBadge from "@/components/CartBadge";
 
 export default function CustomerLayout({
   children,
@@ -40,19 +42,13 @@ export default function CustomerLayout({
 
             {/* Right Side Actions */}
             <div className="flex items-center space-x-4">
-              <Link href="/cart">
-                <Button variant="ghost" size="icon" className="relative">
-                  <ShoppingCart className="w-5 h-5" />
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    0
-                  </span>
-                </Button>
-              </Link>
+              <CartBadge />
               <Link href="/profile">
                 <Button variant="ghost" size="icon">
                   <User className="w-5 h-5" />
                 </Button>
               </Link>
+              <LogoutButton />
             </div>
           </div>
         </div>

@@ -64,13 +64,31 @@ export default function DeliveryPartnerProfilePage() {
       }
 
       const data = await response.json();
-      setProfile(data.user.deliveryPartner);
+      
+      if (!data.data?.deliveryPartner) {
+        throw new Error('No delivery partner profile found');
+      }
+      
+      // Restructure the data to match the expected interface
+      const profileWithUser = {
+        ...data.data.deliveryPartner,
+        user: {
+          id: data.data.id,
+          email: data.data.email,
+          phone: data.data.phone,
+          firstName: data.data.firstName,
+          lastName: data.data.lastName,
+          status: data.data.status,
+        },
+      };
+      
+      setProfile(profileWithUser);
       setFormData({
-        firstName: data.user.firstName,
-        lastName: data.user.lastName,
-        phone: data.user.phone,
-        vehicleType: data.user.deliveryPartner?.vehicleType || '',
-        vehicleNumber: data.user.deliveryPartner?.vehicleNumber || '',
+        firstName: data.data.firstName,
+        lastName: data.data.lastName,
+        phone: data.data.phone,
+        vehicleType: data.data.deliveryPartner?.vehicleType || '',
+        vehicleNumber: data.data.deliveryPartner?.vehicleNumber || '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

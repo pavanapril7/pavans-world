@@ -20,6 +20,7 @@ interface CartItem {
   id: string;
   quantity: number;
   product: {
+    id: string;
     name: string;
     price: number;
   };
@@ -44,14 +45,15 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchCart();
     fetchAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCart = async () => {
     try {
       const response = await fetch("/api/cart");
       if (response.ok) {
-        const data = await response.json();
-        setCart(data);
+        const result = await response.json();
+        setCart(result.data);
       } else {
         router.push("/cart");
       }
@@ -71,9 +73,10 @@ export default function CheckoutPage() {
           `/api/users/${session.user.id}/addresses`
         );
         if (addressResponse.ok) {
-          const data = await addressResponse.json();
-          setAddresses(data);
-          const defaultAddr = data.find((addr: Address) => addr.isDefault);
+          const result = await addressResponse.json();
+          const addressList = result.data || [];
+          setAddresses(addressList);
+          const defaultAddr = addressList.find((addr: Address) => addr.isDefault);
           if (defaultAddr) {
             setSelectedAddress(defaultAddr.id);
           }
@@ -101,13 +104,14 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subtotal: calculateSubtotal(),
-          deliveryAddressId: selectedAddress,
+          deliveryFee: 50, // Default delivery fee
+          taxRate: 0.05, // 5% tax rate
         }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        return data;
+        const result = await response.json();
+        return result.data;
       }
     } catch (error) {
       console.error("Failed to calculate total:", error);
@@ -132,6 +136,7 @@ export default function CheckoutPage() {
     if (selectedAddress && cart) {
       calculateTotal().then(setTotals);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAddress, cart]);
 
   const placeOrder = async () => {
@@ -140,24 +145,59 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!cart || !cart.items || cart.items.length === 0) {
+      alert("Your cart is empty");
+      return;
+    }
+
     setProcessing(true);
 
     try {
-      // Initiate payment
+      // Prepare order items from cart
+      const orderItems = cart.items.map((item) => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+      }));
+
+      // Create order first
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryAddressId: selectedAddress,
+          items: orderItems,
+          subtotal: totals.subtotal,
+          deliveryFee: totals.deliveryFee,
+          tax: totals.tax,
+          total: totals.total,
+        }),
+      });
+
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        throw new Error(errorData.error?.message || "Order creation failed");
+      }
+
+      const order = await orderResponse.json();
+
+      // Initiate payment with the order ID
       const paymentResponse = await fetch("/api/payments/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orderId: order.id,
           amount: totals.total,
           method: paymentMethod,
         }),
       });
 
       if (!paymentResponse.ok) {
-        throw new Error("Payment initiation failed");
+        const errorData = await paymentResponse.json();
+        throw new Error(errorData.error?.message || "Payment initiation failed");
       }
 
-      const paymentData = await paymentResponse.json();
+      const paymentResult = await paymentResponse.json();
+      const payment = paymentResult.data || paymentResult;
 
       // For demo purposes, simulate payment verification
       // In production, this would integrate with actual payment gateway
@@ -165,42 +205,27 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentId: paymentData.id,
+          paymentId: payment.id,
           gatewayTransactionId: "demo_" + Date.now(),
         }),
       });
 
       if (!verifyResponse.ok) {
-        throw new Error("Payment verification failed");
+        const errorData = await verifyResponse.json();
+        throw new Error(errorData.error?.message || "Payment verification failed");
       }
-
-      // Create order
-      const orderResponse = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deliveryAddressId: selectedAddress,
-          paymentId: paymentData.id,
-        }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error("Order creation failed");
-      }
-
-      const order = await orderResponse.json();
 
       // Redirect to order confirmation
       router.push(`/orders/${order.id}`);
     } catch (error) {
       console.error("Failed to place order:", error);
-      alert("Failed to place order. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to place order. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
 
-  const formatPrice = (price: number | any) => {
+  const formatPrice = (price: number) => {
     return `₹${Number(price).toFixed(2)}`;
   };
 
@@ -327,11 +352,13 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="space-y-2 mb-4">
+              {cart.vendor && (
+                <div className="text-sm text-gray-600">
+                  From {cart.vendor.businessName}
+                </div>
+              )}
               <div className="text-sm text-gray-600">
-                From {cart.vendor.businessName}
-              </div>
-              <div className="text-sm text-gray-600">
-                {cart.items.length} item(s)
+                {cart.items?.length || 0} item(s)
               </div>
             </div>
 

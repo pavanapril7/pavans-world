@@ -45,7 +45,7 @@ export default function AddressesPage() {
         );
         if (addressResponse.ok) {
           const data = await addressResponse.json();
-          setAddresses(data);
+          setAddresses(data.data || []);
         }
       }
     } catch (error) {
