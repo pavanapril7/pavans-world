@@ -29,8 +29,10 @@ interface CartItem {
 interface Cart {
   items: CartItem[];
   vendor: {
+    id: string;
     businessName: string;
   };
+  vendorId: string;
 }
 
 export default function CheckoutPage() {
@@ -213,6 +215,21 @@ export default function CheckoutPage() {
       if (!verifyResponse.ok) {
         const errorData = await verifyResponse.json();
         throw new Error(errorData.error?.message || "Payment verification failed");
+      }
+
+      // Clear the cart after successful order
+      if (cart?.vendorId) {
+        try {
+          await fetch(`/api/cart?vendorId=${cart.vendorId}`, {
+            method: "DELETE",
+          });
+          
+          // Dispatch cart updated event to update the cart badge
+          window.dispatchEvent(new Event('cartUpdated'));
+        } catch (error) {
+          console.error("Failed to clear cart:", error);
+          // Don't fail the order if cart clearing fails
+        }
       }
 
       // Redirect to order confirmation

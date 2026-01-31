@@ -25,6 +25,13 @@ export default function DeliveryPartnerLayout({
             {/* Navigation Links */}
             <nav className="hidden md:flex items-center space-x-6">
               <Link
+                href="/vendors"
+                className="text-gray-700 hover:text-green-600 font-medium transition-colors flex items-center space-x-1"
+              >
+                <Package className="w-4 h-4" />
+                <span>Browse Vendors</span>
+              </Link>
+              <Link
                 href="/delivery/available"
                 className="text-gray-700 hover:text-green-600 font-medium transition-colors flex items-center space-x-1"
               >

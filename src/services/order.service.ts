@@ -168,6 +168,28 @@ export class OrderService {
         },
       });
 
+      // Clear the customer's cart for this vendor
+      const cart = await tx.cart.findUnique({
+        where: {
+          customerId_vendorId: {
+            customerId,
+            vendorId,
+          },
+        },
+      });
+
+      if (cart) {
+        // Delete all cart items
+        await tx.cartItem.deleteMany({
+          where: { cartId: cart.id },
+        });
+
+        // Delete the cart
+        await tx.cart.delete({
+          where: { id: cart.id },
+        });
+      }
+
       return newOrder;
     });
 

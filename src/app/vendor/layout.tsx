@@ -30,7 +30,7 @@ export default async function VendorLayout({
         return undefined;
       },
     },
-  } as any;
+  } as unknown;
 
   const authResult = await authenticate(mockRequest);
 
@@ -60,6 +60,12 @@ export default async function VendorLayout({
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  href="/vendors"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  Browse Vendors
                 </Link>
                 <Link
                   href="/vendor/products"

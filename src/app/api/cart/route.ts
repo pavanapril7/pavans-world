@@ -53,3 +53,65 @@ export const GET = withAuth(
   },
   { roles: [UserRole.CUSTOMER] }
 );
+
+/**
+ * DELETE /api/cart
+ * Clear customer's cart
+ */
+export const DELETE = withAuth(
+  async (request: NextRequest, context: { user: AuthUser }) => {
+    try {
+      const customerId = context.user.id;
+      const { searchParams } = new URL(request.url);
+      const vendorId = searchParams.get('vendorId');
+
+      if (!vendorId) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'vendorId is required',
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      await CartService.clearCart(customerId, vendorId);
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'Cart cleared successfully',
+        },
+        { status: 200 }
+      );
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage.includes('not found')) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'NOT_FOUND',
+              message: errorMessage,
+            },
+          },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to clear cart',
+          },
+        },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: [UserRole.CUSTOMER] }
+);
