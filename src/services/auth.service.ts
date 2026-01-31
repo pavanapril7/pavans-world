@@ -320,6 +320,7 @@ export class AuthService {
             lastName: true,
             role: true,
             status: true,
+            createdAt: true,
           },
         },
       },

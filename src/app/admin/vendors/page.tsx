@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Check, Ban, Plus, X } from 'lucide-react';
+import { Search, Check, Ban, Plus, X, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Vendor {
@@ -52,6 +52,14 @@ export default function AdminVendorsPage() {
     email: string;
     password: string;
   } | null>(null);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [editForm, setEditForm] = useState({
+    businessName: '',
+    description: '',
+    categoryId: '',
+    serviceAreaId: '',
+    status: '',
+  });
   const [createFormData, setCreateFormData] = useState({
     firstName: '',
     lastName: '',
@@ -208,6 +216,53 @@ export default function AdminVendorsPage() {
     } catch (error) {
       console.error('Failed to create vendor:', error);
       alert('Failed to create vendor');
+    }
+  };
+
+  const openEditModal = (vendor: Vendor) => {
+    setEditingVendor(vendor);
+    setEditForm({
+      businessName: vendor.businessName,
+      description: vendor.description,
+      categoryId: vendor.category.id,
+      serviceAreaId: vendor.serviceArea.id,
+      status: vendor.status,
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingVendor(null);
+    setEditForm({
+      businessName: '',
+      description: '',
+      categoryId: '',
+      serviceAreaId: '',
+      status: '',
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVendor) return;
+
+    try {
+      const response = await fetch(`/api/admin/vendors/${editingVendor.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to update vendor');
+      }
+
+      closeEditModal();
+      fetchVendors();
+      alert('Vendor updated successfully');
+    } catch (error) {
+      console.error('Error updating vendor:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update vendor');
     }
   };
 
@@ -606,33 +661,42 @@ export default function AdminVendorsPage() {
                     {vendor.totalOrders}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {vendor.status === 'PENDING_APPROVAL' && (
+                    <div className="flex justify-end space-x-2">
                       <button
-                        onClick={() => handleApprove(vendor.id)}
-                        className="text-green-600 hover:text-green-900 mr-4"
-                        title="Approve"
+                        onClick={() => openEditModal(vendor)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit"
                       >
-                        <Check className="w-4 h-4 inline" />
+                        <Edit className="w-4 h-4 inline" />
                       </button>
-                    )}
-                    {vendor.status === 'ACTIVE' && (
-                      <button
-                        onClick={() => handleDeactivate(vendor.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Deactivate"
-                      >
-                        <Ban className="w-4 h-4 inline" />
-                      </button>
-                    )}
-                    {vendor.status === 'INACTIVE' && (
-                      <button
-                        onClick={() => handleApprove(vendor.id)}
-                        className="text-green-600 hover:text-green-900"
-                        title="Activate"
-                      >
-                        <Check className="w-4 h-4 inline" />
-                      </button>
-                    )}
+                      {vendor.status === 'PENDING_APPROVAL' && (
+                        <button
+                          onClick={() => handleApprove(vendor.id)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Approve"
+                        >
+                          <Check className="w-4 h-4 inline" />
+                        </button>
+                      )}
+                      {vendor.status === 'ACTIVE' && (
+                        <button
+                          onClick={() => handleDeactivate(vendor.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Deactivate"
+                        >
+                          <Ban className="w-4 h-4 inline" />
+                        </button>
+                      )}
+                      {vendor.status === 'INACTIVE' && (
+                        <button
+                          onClick={() => handleApprove(vendor.id)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Activate"
+                        >
+                          <Check className="w-4 h-4 inline" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -640,6 +704,143 @@ export default function AdminVendorsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Vendor Modal */}
+      {editingVendor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Edit Vendor</h2>
+              <button
+                onClick={closeEditModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.businessName}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, businessName: e.target.value })
+                  }
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, description: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={editForm.categoryId}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, categoryId: e.target.value })
+                    }
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Area
+                  </label>
+                  <select
+                    value={editForm.serviceAreaId}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, serviceAreaId: e.target.value })
+                    }
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">Select Service Area</option>
+                    {serviceAreas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, status: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="PENDING_APPROVAL">Pending Approval</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="SUSPENDED">Suspended</option>
+                </select>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Owner Information
+                </h4>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    <span className="font-medium">Name:</span>{' '}
+                    {editingVendor.user.firstName} {editingVendor.user.lastName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Email:</span>{' '}
+                    {editingVendor.user.email}
+                  </p>
+                  <p>
+                    <span className="font-medium">Phone:</span>{' '}
+                    {editingVendor.user.phone}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <Button type="button" onClick={closeEditModal} variant="outline">
+                  Cancel
+                </Button>
+                <Button type="submit">Save Changes</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

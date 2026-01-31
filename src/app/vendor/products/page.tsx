@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import router from 'next/router';
 
 interface Product {
   id: string;
@@ -167,13 +168,16 @@ export default function VendorProductsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {products.map((product) => (
-                <tr key={product.id}>
+                <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
+                      <button
+                        onClick={() => router.push(`/products/${product.id}`)}
+                        className="flex-shrink-0 h-10 w-10"
+                      >
                         {product.imageUrl ? (
                           <img
-                            className="h-10 w-10 rounded object-cover"
+                            className="h-10 w-10 rounded object-cover hover:opacity-80 transition-opacity"
                             src={product.imageUrl}
                             alt={product.name}
                           />
@@ -182,11 +186,14 @@ export default function VendorProductsPage() {
                             <span className="text-gray-400 text-xs">No img</span>
                           </div>
                         )}
-                      </div>
+                      </button>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <button
+                          onClick={() => router.push(`/products/${product.id}`)}
+                          className="text-sm font-medium text-gray-900 hover:text-blue-600 text-left"
+                        >
                           {product.name}
-                        </div>
+                        </button>
                         <div className="text-sm text-gray-500">
                           {product.description.substring(0, 50)}
                           {product.description.length > 50 ? '...' : ''}

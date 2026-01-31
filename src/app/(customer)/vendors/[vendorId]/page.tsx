@@ -50,6 +50,7 @@ export default function VendorDetailPage() {
   useEffect(() => {
     fetchVendor();
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorId]);
 
   const fetchVendor = async () => {
@@ -222,7 +223,8 @@ export default function VendorDetailPage() {
             {products.map((product) => (
               <div
                 key={product.id}
-                className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => router.push(`/products/${product.id}`)}
               >
                 {/* Product Image */}
                 <div className="h-48 bg-gray-100 flex items-center justify-center">
@@ -240,7 +242,7 @@ export default function VendorDetailPage() {
                 {/* Product Info */}
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600">
                       {product.name}
                     </h3>
                     {product.status === "OUT_OF_STOCK" && (
@@ -266,7 +268,10 @@ export default function VendorDetailPage() {
                     <div className="mt-4 flex items-center space-x-2">
                       <div className="flex items-center border border-gray-300 rounded-lg">
                         <button
-                          onClick={() => updateQuantity(product.id, -1)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuantity(product.id, -1);
+                          }}
                           className="p-2 hover:bg-gray-100"
                         >
                           <Minus className="w-4 h-4" />
@@ -275,14 +280,20 @@ export default function VendorDetailPage() {
                           {cartQuantities[product.id] || 1}
                         </span>
                         <button
-                          onClick={() => updateQuantity(product.id, 1)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuantity(product.id, 1);
+                          }}
                           className="p-2 hover:bg-gray-100"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
                       <Button
-                        onClick={() => addToCart(product.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product.id);
+                        }}
                         className="flex-1"
                         size="sm"
                       >

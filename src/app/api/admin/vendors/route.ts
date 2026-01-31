@@ -18,6 +18,54 @@ const createVendorSchema = z.object({
 });
 
 /**
+ * GET /api/admin/vendors
+ * Get all vendors (admin only)
+ */
+export const GET = withAuth(
+  async (request: NextRequest) => {
+    try {
+      const vendors = await prisma.vendor.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              firstName: true,
+              lastName: true,
+              status: true,
+              createdAt: true,
+            },
+          },
+          category: true,
+          serviceArea: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: vendors,
+      });
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+      return NextResponse.json(
+        {
+          error: {
+            code: 'FETCH_FAILED',
+            message: 'Failed to fetch vendors',
+          },
+        },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: [UserRole.SUPER_ADMIN] }
+);
+
+/**
  * POST /api/admin/vendors
  * Create a new vendor (admin only)
  */

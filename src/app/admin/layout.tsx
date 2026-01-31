@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Store, MapPin, Tag, BarChart3, Shield } from "lucide-react";
+import { Users, Store, MapPin, Tag, BarChart3, Shield, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -44,6 +44,13 @@ export default function AdminLayout({
               >
                 <Store className="w-4 h-4" />
                 <span>Vendors</span>
+              </Link>
+              <Link
+                href="/admin/products"
+                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+              >
+                <Package className="w-4 h-4" />
+                <span>Products</span>
               </Link>
               <Link
                 href="/admin/service-areas"
