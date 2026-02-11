@@ -6,6 +6,7 @@ export interface UserFilters {
   role?: UserRole;
   status?: UserStatus;
   search?: string;
+  includeDeliveryPartner?: boolean;
 }
 
 export class UserService {
@@ -53,6 +54,16 @@ export class UserService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        // Conditionally include delivery partner data
+        deliveryPartner: filters?.includeDeliveryPartner ? {
+          select: {
+            id: true,
+            vehicleType: true,
+            vehicleNumber: true,
+            status: true,
+            rating: true,
+          }
+        } : false,
       },
       orderBy: {
         createdAt: 'desc',
@@ -122,29 +133,49 @@ export class UserService {
       throw new Error('User with this email or phone already exists');
     }
 
-    // Create user without password (can be set later or use OTP)
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        phone: data.phone,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role,
-        status: UserStatus.ACTIVE,
-      },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        status: true,
-        createdAt: true,
-      },
+    // Use transaction to create user and role-specific records
+    const user = await prisma.$transaction(async (tx) => {
+      // Create user without password (can be set later or use OTP)
+      const newUser = await tx.user.create({
+        data: {
+          email: data.email,
+          phone: data.phone,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          role: data.role,
+          status: UserStatus.ACTIVE,
+        },
+      });
+
+      // Create role-specific records
+      if (data.role === UserRole.DELIVERY_PARTNER) {
+        await tx.deliveryPartner.create({
+          data: {
+            userId: newUser.id,
+            status: 'OFFLINE', // Default status
+          },
+        });
+      } else if (data.role === UserRole.VENDOR) {
+        // Vendor record requires categoryId and serviceAreaId
+        // These should be provided in the create user form for vendors
+        // For now, we'll skip auto-creation and require manual setup
+        // You can extend CreateUserInput schema to include these fields
+      }
+
+      return newUser;
     });
 
-    return user;
+    // Return user with selected fields
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt,
+    };
   }
 
   /**

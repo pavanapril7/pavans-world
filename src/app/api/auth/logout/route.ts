@@ -6,22 +6,29 @@ export async function POST(request: NextRequest) {
   try {
     const token = extractToken(request);
 
-    if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'NO_TOKEN',
-            message: 'No authentication token provided',
-          },
-        },
-        { status: 400 }
-      );
+    // Always clear the cookie, even if there's no token or it's invalid
+    const response = NextResponse.json(
+      {
+        message: 'Logged out successfully',
+      },
+      { status: 200 }
+    );
+
+    response.cookies.delete('auth_token');
+
+    // If there's a token, try to delete the session from database
+    if (token) {
+      try {
+        await AuthService.logout(token);
+      } catch (error) {
+        // Ignore errors - session might already be expired/deleted
+        console.log('Session cleanup failed (may already be expired):', error);
+      }
     }
 
-    // Logout user
-    await AuthService.logout(token);
-
-    // Clear cookie
+    return response;
+  } catch (error) {
+    // Even on error, try to clear the cookie
     const response = NextResponse.json(
       {
         message: 'Logged out successfully',
@@ -32,28 +39,5 @@ export async function POST(request: NextRequest) {
     response.cookies.delete('auth_token');
 
     return response;
-  } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'LOGOUT_FAILED',
-            message: error.message,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    // Unknown error
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected error occurred',
-        },
-      },
-      { status: 500 }
-    );
   }
 }

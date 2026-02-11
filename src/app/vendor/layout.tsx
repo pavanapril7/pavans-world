@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { NextRequest } from 'next/server';
 import { authenticate } from '@/middleware/auth.middleware';
 import { cookies } from 'next/headers';
 import LogoutButton from '@/components/LogoutButton';
@@ -30,7 +31,7 @@ export default async function VendorLayout({
         return undefined;
       },
     },
-  } as unknown;
+  } as unknown as NextRequest;
 
   const authResult = await authenticate(mockRequest);
 

@@ -240,18 +240,18 @@ model Address {
 model DeliveryPartner {
   id              String                @id @default(uuid())
   userId          String                @unique
-  vehicleType     String
-  vehicleNumber   String
-  status          DeliveryPartnerStatus @default(AVAILABLE)
-  serviceAreaId   String
+  vehicleType     String?
+  vehicleNumber   String?
+  status          DeliveryPartnerStatus @default(OFFLINE)
+  serviceAreaId   String?
   totalDeliveries Int                   @default(0)
   rating          Decimal               @default(0) @db.Decimal(3, 2)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
   // Relations
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceArea ServiceArea @relation(fields: [serviceAreaId], references: [id])
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceArea ServiceArea? @relation(fields: [serviceAreaId], references: [id])
   orders      Order[]
 
   @@index([userId])
@@ -321,6 +321,12 @@ model Order {
   @@index([deliveryPartnerId])
   @@index([status])
   @@index([createdAt])
+  // Composite indexes for common query patterns
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+  @@index([vendorId, createdAt])
+  @@index([status, vendorId])
+  @@index([status, customerId])
 }
 
 model OrderItem {
@@ -451,5 +457,23 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  entityType  String
+  entityId    String
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
   @@index([createdAt])
 }

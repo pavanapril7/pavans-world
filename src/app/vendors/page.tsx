@@ -57,9 +57,14 @@ export default function VendorsPage() {
       if (response.ok) {
         const data = await response.json();
         setSession(data);
+      } else {
+        // Session is invalid or expired - set a guest session
+        setSession({ user: { id: '', email: '', role: 'GUEST', firstName: 'Guest', lastName: '' } } as UserSession);
       }
     } catch (error) {
       console.error("Failed to fetch session:", error);
+      // On error, set a guest session
+      setSession({ user: { id: '', email: '', role: 'GUEST', firstName: 'Guest', lastName: '' } } as UserSession);
     }
   };
 
@@ -352,7 +357,33 @@ export default function VendorsPage() {
       );
     }
 
-    return null;
+    // Guest/unauthenticated user
+    return (
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <Link href="/vendors" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">M</span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">Marketplace</span>
+            </Link>
+            <div className="flex items-center space-x-4">
+              <Link href="/auth/login">
+                <Button variant="outline" size="sm">
+                  Login
+                </Button>
+              </Link>
+              <Link href="/auth/register">
+                <Button size="sm">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
   };
 
   return (

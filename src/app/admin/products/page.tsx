@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Package, Search, Filter, Eye, Edit, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -28,8 +28,9 @@ interface Vendor {
   businessName: string;
 }
 
-export default function AdminProductsPage() {
+function AdminProductsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const categoryInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -57,6 +58,19 @@ export default function AdminProductsPage() {
   useEffect(() => {
     fetchVendors();
   }, []);
+
+  // Handle edit query parameter
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && products.length > 0) {
+      const productToEdit = products.find(p => p.id === editId);
+      if (productToEdit) {
+        openEditModal(productToEdit);
+        // Remove the query parameter from URL
+        router.replace('/admin/products', { scroll: false });
+      }
+    }
+  }, [searchParams, products, router]);
 
   // Debounced fetch with focus preservation
   useEffect(() => {
@@ -619,5 +633,17 @@ export default function AdminProductsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <AdminProductsContent />
+    </Suspense>
   );
 }

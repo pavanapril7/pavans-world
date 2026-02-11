@@ -325,9 +325,9 @@ export default function OrderDetailPage() {
               </div>
             </div>
             <div className="text-right text-sm text-gray-600">
-              <div>{order.deliveryPartner.vehicleType}</div>
+              <div>{order.deliveryPartner.vehicleType || 'Vehicle not set'}</div>
               <div className="font-mono">
-                {order.deliveryPartner.vehicleNumber}
+                {order.deliveryPartner.vehicleNumber || 'N/A'}
               </div>
             </div>
           </div>

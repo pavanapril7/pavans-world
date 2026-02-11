@@ -353,13 +353,13 @@ export default function AdminUserDetailPage() {
             <div>
               <p className="text-sm text-gray-500">Vehicle Type</p>
               <p className="text-sm font-medium text-gray-900 mt-1">
-                {user.deliveryPartner.vehicleType}
+                {user.deliveryPartner.vehicleType || 'Not set'}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Vehicle Number</p>
               <p className="text-sm font-medium text-gray-900 mt-1">
-                {user.deliveryPartner.vehicleNumber}
+                {user.deliveryPartner.vehicleNumber || 'Not set'}
               </p>
             </div>
             <div>
@@ -379,7 +379,7 @@ export default function AdminUserDetailPage() {
             <div>
               <p className="text-sm text-gray-500">Service Area</p>
               <p className="text-sm font-medium text-gray-900 mt-1">
-                {user.deliveryPartner.serviceArea.name}
+                {user.deliveryPartner.serviceArea?.name || 'Not assigned'}
               </p>
             </div>
           </div>

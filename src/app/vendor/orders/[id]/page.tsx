@@ -292,7 +292,7 @@ export default function VendorOrderDetailPage({
               <div>
                 <p className="text-sm text-gray-500">Vehicle</p>
                 <p className="text-base font-medium">
-                  {order.deliveryPartner.vehicleType} - {order.deliveryPartner.vehicleNumber}
+                  {order.deliveryPartner.vehicleType || 'Not set'} - {order.deliveryPartner.vehicleNumber || 'N/A'}
                 </p>
               </div>
             </div>

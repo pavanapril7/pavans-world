@@ -1,5 +1,8 @@
+'use client';
+
 import Link from "next/link";
-import { Users, Store, MapPin, Tag, BarChart3, Shield, Package, ShoppingBag } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Users, Store, MapPin, Tag, BarChart3, Shield, Package, ShoppingBag, ShoppingCart, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -8,6 +11,10 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  const isActive = (path: string) => pathname === path || pathname?.startsWith(path + '/');
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Header */}
@@ -26,49 +33,99 @@ export default function AdminLayout({
             <nav className="hidden md:flex items-center space-x-6">
               <Link
                 href="/admin/dashboard"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/dashboard')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <BarChart3 className="w-4 h-4" />
                 <span>Dashboard</span>
               </Link>
               <Link
                 href="/vendors"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/vendors')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>Browse Vendors</span>
               </Link>
               <Link
                 href="/admin/users"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/users')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <Users className="w-4 h-4" />
                 <span>Users</span>
               </Link>
               <Link
                 href="/admin/vendors"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/vendors')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <Store className="w-4 h-4" />
                 <span>Vendors</span>
               </Link>
               <Link
+                href="/admin/delivery-partners"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/delivery-partners')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
+              >
+                <Truck className="w-4 h-4" />
+                <span>Delivery</span>
+              </Link>
+              <Link
                 href="/admin/products"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/products')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <Package className="w-4 h-4" />
                 <span>Products</span>
               </Link>
               <Link
+                href="/admin/orders"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/orders')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>Orders</span>
+              </Link>
+              <Link
                 href="/admin/service-areas"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/service-areas')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <MapPin className="w-4 h-4" />
                 <span>Service Areas</span>
               </Link>
               <Link
                 href="/admin/categories"
-                className="text-gray-700 hover:text-purple-600 font-medium transition-colors flex items-center space-x-1"
+                className={`font-medium transition-colors flex items-center space-x-1 ${
+                  isActive('/admin/categories')
+                    ? 'text-purple-600'
+                    : 'text-gray-700 hover:text-purple-600'
+                }`}
               >
                 <Tag className="w-4 h-4" />
                 <span>Categories</span>

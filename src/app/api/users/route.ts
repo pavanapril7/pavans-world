@@ -19,6 +19,7 @@ export const GET = withAuth(
         role: searchParams.get('role') as UserRole | undefined,
         status: searchParams.get('status') as UserStatus | undefined,
         search: searchParams.get('search') || undefined,
+        includeDeliveryPartner: searchParams.get('includeDeliveryPartner') === 'true',
       };
 
       const users = await UserService.getUsers(filters);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Search, Check, Ban, Plus, X, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -662,6 +663,13 @@ export default function AdminVendorsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
+                      <Link
+                        href={`/vendors/${vendor.id}`}
+                        className="text-purple-600 hover:text-purple-900"
+                        title="View Products"
+                      >
+                        View Products
+                      </Link>
                       <button
                         onClick={() => openEditModal(vendor)}
                         className="text-blue-600 hover:text-blue-900"

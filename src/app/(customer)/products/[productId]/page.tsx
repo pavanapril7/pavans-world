@@ -48,6 +48,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     fetchSession();
     fetchProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   const fetchSession = async () => {
@@ -142,6 +143,9 @@ export default function ProductDetailPage() {
 
       alert('Added to cart successfully!');
       setQuantity(1);
+      
+      // Dispatch cart updated event to update the cart badge
+      window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
       console.error('Error adding to cart:', error);
       alert(error instanceof Error ? error.message : 'Failed to add to cart');
@@ -163,7 +167,7 @@ export default function ProductDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Package className="w-16 h-16 text-gray-400 mb-4" />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Product Not Found</h2>
-        <p className="text-gray-600 mb-6">The product you're looking for doesn't exist.</p>
+        <p className="text-gray-600 mb-6">The product you're looking for doesn&apos;t exist.</p>
         <Button onClick={() => router.back()}>Go Back</Button>
       </div>
     );

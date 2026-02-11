@@ -296,10 +296,15 @@ export class AuthService {
    * Logout user by invalidating session
    */
   static async logout(token: string) {
-    // Delete session
-    await prisma.session.delete({
-      where: { token },
-    });
+    // Try to delete session, but don't throw if it doesn't exist
+    try {
+      await prisma.session.delete({
+        where: { token },
+      });
+    } catch (error) {
+      // Session might already be deleted or expired
+      console.log('Session not found during logout:', error);
+    }
 
     return { message: 'Logged out successfully' };
   }
