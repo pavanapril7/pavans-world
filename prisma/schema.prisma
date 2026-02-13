@@ -106,6 +106,12 @@ enum NotificationType {
   PAYMENT_FAILED
 }
 
+enum FulfillmentMethod {
+  EAT_IN
+  PICKUP
+  DELIVERY
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -181,13 +187,15 @@ model Vendor {
   updatedAt     DateTime     @updatedAt
 
   // Relations
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category       VendorCategory   @relation(fields: [categoryId], references: [id])
-  serviceArea    ServiceArea      @relation(fields: [serviceAreaId], references: [id])
-  products       Product[]
-  orders         Order[]
-  operatingHours OperatingHours[]
-  carts          Cart[]
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category                  VendorCategory             @relation(fields: [categoryId], references: [id])
+  serviceArea               ServiceArea                @relation(fields: [serviceAreaId], references: [id])
+  products                  Product[]
+  orders                    Order[]
+  operatingHours            OperatingHours[]
+  carts                     Cart[]
+  mealSlots                 MealSlot[]
+  vendorFulfillmentConfig   VendorFulfillmentConfig?
 
   @@index([userId])
   @@index([categoryId])
@@ -292,25 +300,30 @@ model CartItem {
 }
 
 model Order {
-  id                String      @id @default(uuid())
-  orderNumber       String      @unique
-  customerId        String
-  vendorId          String
-  deliveryPartnerId String?
-  deliveryAddressId String
-  status            OrderStatus @default(PENDING)
-  subtotal          Decimal     @db.Decimal(10, 2)
-  deliveryFee       Decimal     @db.Decimal(10, 2)
-  tax               Decimal     @db.Decimal(10, 2)
-  total             Decimal     @db.Decimal(10, 2)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id                      String             @id @default(uuid())
+  orderNumber             String             @unique
+  customerId              String
+  vendorId                String
+  deliveryPartnerId       String?
+  deliveryAddressId       String
+  status                  OrderStatus        @default(PENDING)
+  subtotal                Decimal            @db.Decimal(10, 2)
+  deliveryFee             Decimal            @db.Decimal(10, 2)
+  tax                     Decimal            @db.Decimal(10, 2)
+  total                   Decimal            @db.Decimal(10, 2)
+  mealSlotId              String?
+  fulfillmentMethod       FulfillmentMethod  @default(DELIVERY)
+  preferredDeliveryStart  String?
+  preferredDeliveryEnd    String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   // Relations
   customer        User                 @relation(fields: [customerId], references: [id])
   vendor          Vendor               @relation(fields: [vendorId], references: [id])
   deliveryPartner DeliveryPartner?     @relation(fields: [deliveryPartnerId], references: [id])
   deliveryAddress Address              @relation(fields: [deliveryAddressId], references: [id])
+  mealSlot        MealSlot?            @relation(fields: [mealSlotId], references: [id])
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   payment         Payment?
@@ -321,6 +334,8 @@ model Order {
   @@index([deliveryPartnerId])
   @@index([status])
   @@index([createdAt])
+  @@index([mealSlotId])
+  @@index([fulfillmentMethod])
   // Composite indexes for common query patterns
   @@index([status, createdAt])
   @@index([customerId, createdAt])
@@ -476,4 +491,51 @@ model AuditLog {
   @@index([entityType])
   @@index([entityId])
   @@index([createdAt])
+}
+
+model MealSlot {
+  id                 String   @id @default(uuid())
+  vendorId           String
+  name               String
+  startTime          String
+  endTime            String
+  cutoffTime         String
+  timeWindowDuration Int      @default(60)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  vendor Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([vendorId])
+  @@index([isActive])
+}
+
+model DefaultMealSlot {
+  id                 String   @id @default(uuid())
+  name               String
+  startTime          String
+  endTime            String
+  cutoffTime         String
+  timeWindowDuration Int      @default(60)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model VendorFulfillmentConfig {
+  id              String   @id @default(uuid())
+  vendorId        String   @unique
+  eatInEnabled    Boolean  @default(false)
+  pickupEnabled   Boolean  @default(true)
+  deliveryEnabled Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
 }

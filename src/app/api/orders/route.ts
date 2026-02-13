@@ -34,8 +34,12 @@ export async function GET(request: NextRequest) {
       customerId?: string;
       vendorId?: string;
       deliveryPartnerId?: string;
+      mealSlotId?: string;
+      fulfillmentMethod?: typeof validatedParams.fulfillmentMethod;
     } = {
       status: validatedParams.status,
+      mealSlotId: validatedParams.mealSlotId,
+      fulfillmentMethod: validatedParams.fulfillmentMethod,
     };
 
     if (validatedParams.startDate) {
@@ -148,6 +152,10 @@ export async function POST(request: NextRequest) {
       deliveryFee: validatedData.deliveryFee,
       tax: validatedData.tax,
       total: validatedData.total,
+      mealSlotId: validatedData.mealSlotId,
+      fulfillmentMethod: validatedData.fulfillmentMethod,
+      preferredDeliveryStart: validatedData.preferredDeliveryStart,
+      preferredDeliveryEnd: validatedData.preferredDeliveryEnd,
     });
 
     return NextResponse.json(order, { status: 201 });
@@ -165,6 +173,29 @@ export async function POST(request: NextRequest) {
             details: 'errors' in error ? error.errors : undefined,
           },
         },
+        { status: 400 }
+      );
+    }
+
+    // Handle meal slot specific errors
+    if (errorMessage.includes('Meal slot is not available')) {
+      return NextResponse.json(
+        { error: { code: 'MEAL_SLOT_UNAVAILABLE', message: errorMessage } },
+        { status: 400 }
+      );
+    }
+
+    if (errorMessage.includes('Delivery window is not within meal slot')) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_DELIVERY_WINDOW', message: errorMessage } },
+        { status: 400 }
+      );
+    }
+
+    // Handle fulfillment method specific errors
+    if (errorMessage.includes('is not available for this vendor')) {
+      return NextResponse.json(
+        { error: { code: 'FULFILLMENT_METHOD_NOT_ENABLED', message: errorMessage } },
         { status: 400 }
       );
     }

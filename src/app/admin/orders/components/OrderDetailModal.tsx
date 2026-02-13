@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
-import { X, Loader2, User, Store, MapPin, Package, CreditCard, Clock } from 'lucide-react';
+import { X, Loader2, User, Store, MapPin, Package, CreditCard, Clock, Calendar, Truck } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import OrderActions from './OrderActions';
@@ -68,6 +68,15 @@ export interface OrderDetail {
   deliveryFee: number | string;
   tax: number | string;
   total: number | string;
+  fulfillmentMethod: string;
+  mealSlot?: {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  } | null;
+  preferredDeliveryStart?: string | null;
+  preferredDeliveryEnd?: string | null;
   items: OrderItem[];
   payment: {
     id: string;
@@ -121,6 +130,13 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   COMPLETED: 'Completed',
   FAILED: 'Failed',
   REFUNDED: 'Refunded',
+};
+
+// Fulfillment method labels
+const FULFILLMENT_METHOD_LABELS: Record<string, string> = {
+  DELIVERY: 'Delivery',
+  PICKUP: 'Pickup',
+  EAT_IN: 'Dine In',
 };
 
 export default function OrderDetailModal({ orderId, onClose, onActionComplete }: OrderDetailModalProps) {
@@ -314,49 +330,100 @@ export default function OrderDetailModal({ orderId, onClose, onActionComplete }:
                 </div>
               </section>
 
-              {/* Delivery Information */}
-              <section className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Delivery Information</h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600 block mb-1">Delivery Address:</span>
-                    <div className="font-medium text-gray-900">
-                      <p>{order.deliveryAddress.street}</p>
-                      {order.deliveryAddress.landmark && (
-                        <p className="text-gray-600">Landmark: {order.deliveryAddress.landmark}</p>
+              {/* Meal Slot and Fulfillment Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Meal Slot */}
+                {order.mealSlot && (
+                  <section className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Calendar className="w-5 h-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Meal Slot</h3>
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-900 mb-2">{order.mealSlot.name}</div>
+                      <div className="text-gray-600">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        {order.mealSlot.startTime} - {order.mealSlot.endTime}
+                      </div>
+                      {order.preferredDeliveryStart && order.preferredDeliveryEnd && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-xs text-gray-500 mb-1">
+                            Preferred Delivery Window
+                          </div>
+                          <div className="text-gray-600">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
+                          </div>
+                        </div>
                       )}
-                      <p>
-                        {order.deliveryAddress.city}, {order.deliveryAddress.state} -{' '}
-                        {order.deliveryAddress.pincode}
-                      </p>
+                    </div>
+                  </section>
+                )}
+
+                {/* Fulfillment Method */}
+                <section className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Truck className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Fulfillment Method</h3>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium text-gray-900">
+                      {FULFILLMENT_METHOD_LABELS[order.fulfillmentMethod] || order.fulfillmentMethod}
+                    </div>
+                    <div className="text-gray-600 mt-2">
+                      {order.fulfillmentMethod === 'EAT_IN' && 'Customer will dine in at the restaurant'}
+                      {order.fulfillmentMethod === 'PICKUP' && 'Customer will pick up from the restaurant'}
+                      {order.fulfillmentMethod === 'DELIVERY' && 'Order will be delivered to customer address'}
                     </div>
                   </div>
-                  {order.deliveryPartner && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <span className="text-gray-600 block mb-1">Delivery Partner:</span>
+                </section>
+              </div>
+
+              {/* Delivery Information */}
+              {order.fulfillmentMethod === 'DELIVERY' && (
+                <section className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <MapPin className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Delivery Information</h3>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <span className="text-gray-600 block mb-1">Delivery Address:</span>
                       <div className="font-medium text-gray-900">
-                        <p>
-                          {order.deliveryPartner.user.firstName}{' '}
-                          {order.deliveryPartner.user.lastName}
-                        </p>
-                        <p className="text-gray-600">
-                          Phone: {order.deliveryPartner.user.phone}
-                        </p>
-                        {order.deliveryPartner.vehicleType && (
-                          <p className="text-gray-600">
-                            Vehicle: {order.deliveryPartner.vehicleType}
-                            {order.deliveryPartner.vehicleNumber &&
-                              ` - ${order.deliveryPartner.vehicleNumber}`}
-                          </p>
+                        <p>{order.deliveryAddress.street}</p>
+                        {order.deliveryAddress.landmark && (
+                          <p className="text-gray-600">Landmark: {order.deliveryAddress.landmark}</p>
                         )}
+                        <p>
+                          {order.deliveryAddress.city}, {order.deliveryAddress.state} -{' '}
+                          {order.deliveryAddress.pincode}
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
-              </section>
+                    {order.deliveryPartner && (
+                      <div className="pt-3 border-t border-gray-200">
+                        <span className="text-gray-600 block mb-1">Delivery Partner:</span>
+                        <div className="font-medium text-gray-900">
+                          <p>
+                            {order.deliveryPartner.user.firstName}{' '}
+                            {order.deliveryPartner.user.lastName}
+                          </p>
+                          <p className="text-gray-600">
+                            Phone: {order.deliveryPartner.user.phone}
+                          </p>
+                          {order.deliveryPartner.vehicleType && (
+                            <p className="text-gray-600">
+                              Vehicle: {order.deliveryPartner.vehicleType}
+                              {order.deliveryPartner.vehicleNumber &&
+                                ` - ${order.deliveryPartner.vehicleNumber}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
               {/* Order Items */}
               <section className="bg-gray-50 rounded-lg p-4">

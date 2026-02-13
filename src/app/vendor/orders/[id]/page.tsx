@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Calendar, Clock, Store, ShoppingBag, Truck } from 'lucide-react';
 
 interface OrderDetails {
   id: string;
@@ -13,6 +14,14 @@ interface OrderDetails {
   tax: number;
   total: number;
   createdAt: string;
+  fulfillmentMethod: string;
+  preferredDeliveryStart?: string;
+  preferredDeliveryEnd?: string;
+  mealSlot?: {
+    name: string;
+    startTime: string;
+    endTime: string;
+  };
   customer: {
     firstName: string;
     lastName: string;
@@ -176,6 +185,31 @@ export default function VendorOrderDetailPage({
   const canReject = order.status === 'PENDING';
   const canMarkReady = order.status === 'ACCEPTED' || order.status === 'PREPARING';
 
+  const getFulfillmentMethodDetails = () => {
+    const method = order.fulfillmentMethod || 'DELIVERY';
+    const details: Record<string, { icon: any; label: string; color: string; instructions: string }> = {
+      EAT_IN: { 
+        icon: Store, 
+        label: 'Dine In', 
+        color: 'text-purple-600',
+        instructions: 'Prepare for dine-in service. Ensure table setup and in-restaurant service.'
+      },
+      PICKUP: { 
+        icon: ShoppingBag, 
+        label: 'Pickup', 
+        color: 'text-orange-600',
+        instructions: 'Prepare for customer pickup. Package order securely and notify customer when ready.'
+      },
+      DELIVERY: { 
+        icon: Truck, 
+        label: 'Delivery', 
+        color: 'text-blue-600',
+        instructions: 'Prepare for delivery. Package order securely and ensure it\'s ready for delivery partner pickup.'
+      },
+    };
+    return details[method] || details.DELIVERY;
+  };
+
   return (
     <div className="px-4 py-6">
       <div className="mb-6">
@@ -240,6 +274,75 @@ export default function VendorOrderDetailPage({
           </div>
         )}
 
+        {/* Meal Slot and Fulfillment Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Meal Slot */}
+          {order.mealSlot && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Meal Slot</h3>
+              </div>
+              <div className="text-gray-600">
+                <div className="font-semibold text-gray-900">
+                  {order.mealSlot.name}
+                </div>
+                <div className="flex items-center space-x-2 mt-2 text-sm">
+                  <Clock className="w-4 h-4" />
+                  <span>
+                    {order.mealSlot.startTime} - {order.mealSlot.endTime}
+                  </span>
+                </div>
+                {order.preferredDeliveryStart && order.preferredDeliveryEnd && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-xs text-gray-500 mb-1">
+                      Preferred Delivery Window
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Fulfillment Method */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-3">
+              <Truck className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Fulfillment Method
+              </h3>
+            </div>
+            <div className="flex items-center space-x-3 mb-3">
+              {(() => {
+                const methodDetails = getFulfillmentMethodDetails();
+                const MethodIcon = methodDetails.icon;
+                return (
+                  <>
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <MethodIcon className={`w-6 h-6 ${methodDetails.color}`} />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        {methodDetails.label}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-gray-700">
+              <div className="font-medium text-gray-900 mb-1">Preparation Instructions:</div>
+              {getFulfillmentMethodDetails().instructions}
+            </div>
+          </div>
+        </div>
+
         {/* Customer Information */}
         <div className="border-t border-gray-200 pt-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Customer Information</h2>
@@ -262,16 +365,18 @@ export default function VendorOrderDetailPage({
         </div>
 
         {/* Delivery Address */}
-        <div className="border-t border-gray-200 pt-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
-          <p className="text-base">
-            {order.deliveryAddress.street}
-            {order.deliveryAddress.landmark && `, ${order.deliveryAddress.landmark}`}
-            <br />
-            {order.deliveryAddress.city}, {order.deliveryAddress.state} -{' '}
-            {order.deliveryAddress.pincode}
-          </p>
-        </div>
+        {order.fulfillmentMethod === 'DELIVERY' && (
+          <div className="border-t border-gray-200 pt-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
+            <p className="text-base">
+              {order.deliveryAddress.street}
+              {order.deliveryAddress.landmark && `, ${order.deliveryAddress.landmark}`}
+              <br />
+              {order.deliveryAddress.city}, {order.deliveryAddress.state} -{' '}
+              {order.deliveryAddress.pincode}
+            </p>
+          </div>
+        )}
 
         {/* Delivery Partner */}
         {order.deliveryPartner && (

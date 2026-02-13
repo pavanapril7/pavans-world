@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, CreditCard, Loader2 } from "lucide-react";
+import { MapPin, CreditCard, Loader2, Calendar, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import MealSlotSelector from "./components/MealSlotSelector";
+import DeliveryWindowSelector from "./components/DeliveryWindowSelector";
+import FulfillmentMethodSelector from "./components/FulfillmentMethodSelector";
 
 interface Address {
   id: string;
@@ -35,6 +38,24 @@ interface Cart {
   vendorId: string;
 }
 
+interface MealSlot {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  cutoffTime: string;
+  isActive: boolean;
+  isAvailable?: boolean;
+}
+
+interface FulfillmentConfig {
+  eatInEnabled: boolean;
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+}
+
+type FulfillmentMethod = 'EAT_IN' | 'PICKUP' | 'DELIVERY';
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -43,12 +64,34 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("CARD");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  
+  // Meal slot and delivery window state
+  const [mealSlots, setMealSlots] = useState<MealSlot[]>([]);
+  const [selectedMealSlot, setSelectedMealSlot] = useState<string | null>(null);
+  const [selectedDeliveryWindow, setSelectedDeliveryWindow] = useState<{
+    start: string;
+    end: string;
+  } | null>(null);
+  const [loadingMealSlots, setLoadingMealSlots] = useState(false);
+  
+  // Fulfillment method state
+  const [fulfillmentConfig, setFulfillmentConfig] = useState<FulfillmentConfig | null>(null);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<FulfillmentMethod>('DELIVERY');
+  const [loadingFulfillment, setLoadingFulfillment] = useState(false);
 
   useEffect(() => {
     fetchCart();
     fetchAddresses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (cart?.vendorId) {
+      fetchMealSlots();
+      fetchFulfillmentConfig();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart?.vendorId]);
 
   const fetchCart = async () => {
     try {
@@ -88,6 +131,65 @@ export default function CheckoutPage() {
       console.error("Failed to fetch addresses:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMealSlots = async () => {
+    if (!cart?.vendorId) return;
+
+    setLoadingMealSlots(true);
+    try {
+      const response = await fetch(
+        `/api/vendors/${cart.vendorId}/meal-slots?available=true`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        // API returns array directly, not wrapped in object
+        const slots = Array.isArray(data) ? data : (data.mealSlots || []);
+        
+        // Check availability based on current time and cutoff
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        const slotsWithAvailability = slots.map((slot: MealSlot) => ({
+          ...slot,
+          isAvailable: slot.cutoffTime > currentTime,
+        }));
+        
+        setMealSlots(slotsWithAvailability);
+      }
+    } catch (error) {
+      console.error("Failed to fetch meal slots:", error);
+    } finally {
+      setLoadingMealSlots(false);
+    }
+  };
+
+  const fetchFulfillmentConfig = async () => {
+    if (!cart?.vendorId) return;
+
+    setLoadingFulfillment(true);
+    try {
+      const response = await fetch(
+        `/api/vendors/${cart.vendorId}/fulfillment-config`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setFulfillmentConfig(data);
+        
+        // Set default fulfillment method based on what's enabled
+        if (data.deliveryEnabled) {
+          setFulfillmentMethod('DELIVERY');
+        } else if (data.pickupEnabled) {
+          setFulfillmentMethod('PICKUP');
+        } else if (data.eatInEnabled) {
+          setFulfillmentMethod('EAT_IN');
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch fulfillment config:", error);
+    } finally {
+      setLoadingFulfillment(false);
     }
   };
 
@@ -142,13 +244,19 @@ export default function CheckoutPage() {
   }, [selectedAddress, cart]);
 
   const placeOrder = async () => {
-    if (!selectedAddress) {
+    // Validate fulfillment method and address
+    if (fulfillmentMethod === 'DELIVERY' && !selectedAddress) {
       alert("Please select a delivery address");
       return;
     }
 
     if (!cart || !cart.items || cart.items.length === 0) {
       alert("Your cart is empty");
+      return;
+    }
+
+    if (!selectedMealSlot) {
+      alert("Please select a meal slot");
       return;
     }
 
@@ -161,18 +269,32 @@ export default function CheckoutPage() {
         quantity: item.quantity,
       }));
 
-      // Create order first
+      // Create order with meal slot, delivery window, and fulfillment method
+      const orderData: any = {
+        items: orderItems,
+        subtotal: totals.subtotal,
+        deliveryFee: totals.deliveryFee,
+        tax: totals.tax,
+        total: totals.total,
+        mealSlotId: selectedMealSlot,
+        fulfillmentMethod: fulfillmentMethod,
+      };
+
+      // Only add delivery address if fulfillment method is DELIVERY
+      if (fulfillmentMethod === 'DELIVERY') {
+        orderData.deliveryAddressId = selectedAddress;
+      }
+
+      // Add delivery window if selected
+      if (selectedDeliveryWindow) {
+        orderData.preferredDeliveryStart = selectedDeliveryWindow.start;
+        orderData.preferredDeliveryEnd = selectedDeliveryWindow.end;
+      }
+
       const orderResponse = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deliveryAddressId: selectedAddress,
-          items: orderItems,
-          subtotal: totals.subtotal,
-          deliveryFee: totals.deliveryFee,
-          tax: totals.tax,
-          total: totals.total,
-        }),
+        body: JSON.stringify(orderData),
       });
 
       if (!orderResponse.ok) {
@@ -265,63 +387,115 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Checkout Form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Delivery Address */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <MapPin className="w-5 h-5 text-blue-600" />
-              <h2 className="text-xl font-bold text-gray-900">
-                Delivery Address
-              </h2>
-            </div>
-
-            {addresses.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">No addresses found</p>
-                <Button onClick={() => router.push("/profile/addresses")}>
-                  Add Address
-                </Button>
+          {/* Fulfillment Method Selection */}
+          {cart?.vendorId && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Truck className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-900">
+                  Fulfillment Method
+                </h2>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {addresses.map((address) => (
-                  <label
-                    key={address.id}
-                    className={`block p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                      selectedAddress === address.id
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="address"
-                      value={address.id}
-                      checked={selectedAddress === address.id}
-                      onChange={(e) => setSelectedAddress(e.target.value)}
-                      className="sr-only"
-                    />
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {address.label}
-                          {address.isDefault && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {address.street}, {address.landmark}
-                          <br />
-                          {address.city}, {address.state} - {address.pincode}
+
+              <FulfillmentMethodSelector
+                config={fulfillmentConfig}
+                selectedMethod={fulfillmentMethod}
+                onSelectMethod={setFulfillmentMethod}
+                loading={loadingFulfillment}
+              />
+            </div>
+          )}
+
+          {/* Meal Slot Selection */}
+          {cart?.vendorId && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-900">
+                  Select Meal Slot
+                </h2>
+              </div>
+
+              <MealSlotSelector
+                vendorId={cart.vendorId}
+                mealSlots={mealSlots}
+                selectedSlotId={selectedMealSlot}
+                onSelectSlot={setSelectedMealSlot}
+                loading={loadingMealSlots}
+              />
+
+              {selectedMealSlot && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <DeliveryWindowSelector
+                    vendorId={cart.vendorId}
+                    mealSlotId={selectedMealSlot}
+                    selectedWindow={selectedDeliveryWindow}
+                    onSelectWindow={setSelectedDeliveryWindow}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Delivery Address */}
+          {fulfillmentMethod === 'DELIVERY' && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <MapPin className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-900">
+                  Delivery Address
+                </h2>
+              </div>
+
+              {addresses.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">No addresses found</p>
+                  <Button onClick={() => router.push("/profile/addresses")}>
+                    Add Address
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {addresses.map((address) => (
+                    <label
+                      key={address.id}
+                      className={`block p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                        selectedAddress === address.id
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="address"
+                        value={address.id}
+                        checked={selectedAddress === address.id}
+                        onChange={(e) => setSelectedAddress(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {address.label}
+                            {address.isDefault && (
+                              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {address.street}, {address.landmark}
+                            <br />
+                            {address.city}, {address.state} - {address.pincode}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Payment Method */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -404,7 +578,11 @@ export default function CheckoutPage() {
               onClick={placeOrder}
               className="w-full"
               size="lg"
-              disabled={!selectedAddress || processing}
+              disabled={
+                !selectedMealSlot ||
+                (fulfillmentMethod === 'DELIVERY' && !selectedAddress) ||
+                processing
+              }
             >
               {processing ? (
                 <>
@@ -415,6 +593,17 @@ export default function CheckoutPage() {
                 "Place Order"
               )}
             </Button>
+
+            {!selectedMealSlot && (
+              <p className="text-xs text-center text-amber-600 mt-2">
+                Please select a meal slot to continue
+              </p>
+            )}
+            {fulfillmentMethod === 'DELIVERY' && !selectedAddress && selectedMealSlot && (
+              <p className="text-xs text-center text-amber-600 mt-2">
+                Please select a delivery address to continue
+              </p>
+            )}
           </div>
         </div>
       </div>

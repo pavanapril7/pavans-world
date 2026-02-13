@@ -6,6 +6,66 @@ import { UserRole } from '@prisma/client';
 import { ZodError } from 'zod';
 
 /**
+ * GET /api/cart/items
+ * Get cart items for the current user
+ */
+export const GET = withAuth(
+  async (request: NextRequest, context: { user: AuthUser }) => {
+    try {
+      const customerId = context.user.id;
+
+      // Get all carts for the customer
+      const carts = await CartService.getAllCarts(customerId);
+
+      if (!carts || carts.length === 0) {
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              items: [],
+              total: 0,
+            },
+          },
+          { status: 200 }
+        );
+      }
+
+      // Flatten all items from all carts
+      const allItems = carts.flatMap(cart => cart.items);
+
+      // Calculate total across all carts
+      const total = carts.reduce((sum, cart) => {
+        return sum + CartService.calculateCartTotal(cart);
+      }, 0);
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            items: allItems,
+            carts: carts,
+            total,
+          },
+        },
+        { status: 200 }
+      );
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to fetch cart',
+          },
+        },
+        { status: 500 }
+      );
+    }
+  },
+  { roles: [UserRole.CUSTOMER] }
+);
+
+/**
  * POST /api/cart/items
  * Add item to cart
  */

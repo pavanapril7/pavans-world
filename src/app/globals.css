@@ -46,3 +46,56 @@
 }
 
 
+
+/* Role-specific theme colors */
+:root {
+  --role-customer: 217 91% 60%;
+  --role-customer-foreground: 0 0% 100%;
+  --role-admin: 271 81% 56%;
+  --role-admin-foreground: 0 0% 100%;
+  --role-vendor: 25 95% 53%;
+  --role-vendor-foreground: 0 0% 100%;
+  --role-delivery: 142 76% 36%;
+  --role-delivery-foreground: 0 0% 100%;
+  --role-guest: 217 91% 60%;
+  --role-guest-foreground: 0 0% 100%;
+}
+
+.dark {
+  --role-customer: 217 91% 60%;
+  --role-customer-foreground: 0 0% 100%;
+  --role-admin: 271 81% 56%;
+  --role-admin-foreground: 0 0% 100%;
+  --role-vendor: 25 95% 53%;
+  --role-vendor-foreground: 0 0% 100%;
+  --role-delivery: 142 76% 36%;
+  --role-delivery-foreground: 0 0% 100%;
+  --role-guest: 217 91% 60%;
+  --role-guest-foreground: 0 0% 100%;
+}
+
+/* Role-specific theme classes */
+.theme-customer {
+  --primary: var(--role-customer);
+  --primary-foreground: var(--role-customer-foreground);
+}
+
+.theme-admin {
+  --primary: var(--role-admin);
+  --primary-foreground: var(--role-admin-foreground);
+}
+
+.theme-vendor {
+  --primary: var(--role-vendor);
+  --primary-foreground: var(--role-vendor-foreground);
+}
+
+.theme-delivery {
+  --primary: var(--role-delivery);
+  --primary-foreground: var(--role-delivery-foreground);
+}
+
+.theme-guest {
+  --primary: var(--role-guest);
+  --primary-foreground: var(--role-guest-foreground);
+}

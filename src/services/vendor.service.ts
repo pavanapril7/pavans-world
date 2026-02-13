@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, VendorStatus } from '@prisma/client';
+import { DefaultMealSlotService } from './default-meal-slot.service';
 
 export interface CreateVendorInput {
   userId: string;
@@ -68,7 +69,7 @@ export class VendorService {
       throw new Error('Service area not found');
     }
 
-    return prisma.vendor.create({
+    const vendor = await prisma.vendor.create({
       data: {
         userId: data.userId,
         businessName: data.businessName,
@@ -91,6 +92,11 @@ export class VendorService {
         serviceArea: true,
       },
     });
+
+    // Apply default meal slots to new vendor
+    await DefaultMealSlotService.applyToNewVendor(vendor.id);
+
+    return vendor;
   }
 
   /**

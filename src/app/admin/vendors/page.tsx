@@ -664,6 +664,13 @@ export default function AdminVendorsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
                       <Link
+                        href={`/admin/vendors/${vendor.id}`}
+                        className="text-purple-600 hover:text-purple-900"
+                        title="View Details"
+                      >
+                        View Details
+                      </Link>
+                      <Link
                         href={`/vendors/${vendor.id}`}
                         className="text-purple-600 hover:text-purple-900"
                         title="View Products"

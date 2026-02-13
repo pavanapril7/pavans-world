@@ -53,15 +53,20 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         const redirectPath = getRedirectPath(data.user.role);
-        router.push(redirectPath);
+        
+        // Clear session cache and force full page reload
+        if (typeof window !== 'undefined') {
+          sessionStorage.clear();
+          window.location.href = redirectPath;
+        }
       } else {
         const error = await response.json();
         alert(error.error?.message || "Login failed");
+        setLoading(false);
       }
     } catch (error) {
       console.error("Login failed:", error);
       alert("Login failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -106,15 +111,20 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         const redirectPath = getRedirectPath(data.user.role);
-        router.push(redirectPath);
+        
+        // Clear session cache and force full page reload
+        if (typeof window !== 'undefined') {
+          sessionStorage.clear();
+          window.location.href = redirectPath;
+        }
       } else {
         const error = await response.json();
         alert(error.error?.message || "OTP verification failed");
+        setLoading(false);
       }
     } catch (error) {
       console.error("OTP verification failed:", error);
       alert("OTP verification failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   };

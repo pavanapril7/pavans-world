@@ -10,6 +10,9 @@ import {
   Truck,
   User,
   Phone,
+  Calendar,
+  Store,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +33,14 @@ interface Order {
   tax: number;
   total: number;
   createdAt: string;
+  fulfillmentMethod: string;
+  preferredDeliveryStart?: string;
+  preferredDeliveryEnd?: string;
+  mealSlot?: {
+    name: string;
+    startTime: string;
+    endTime: string;
+  };
   vendor: {
     businessName: string;
     user: {
@@ -135,6 +146,16 @@ export default function OrderDetailPage() {
       completed: index <= currentIndex,
       current: index === currentIndex,
     }));
+  };
+
+  const getFulfillmentMethodDetails = () => {
+    const method = order?.fulfillmentMethod || 'DELIVERY';
+    const details: Record<string, { icon: any; label: string; color: string }> = {
+      EAT_IN: { icon: Store, label: 'Dine In', color: 'text-purple-600' },
+      PICKUP: { icon: ShoppingBag, label: 'Pickup', color: 'text-orange-600' },
+      DELIVERY: { icon: Truck, label: 'Delivery', color: 'text-blue-600' },
+    };
+    return details[method] || details.DELIVERY;
   };
 
   const formatPrice = (price: number | any) => {
@@ -261,30 +282,102 @@ export default function OrderDetailPage() {
         </div>
       )}
 
+      {/* Meal Slot and Fulfillment Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Delivery Address */}
+        {/* Meal Slot */}
+        {order.mealSlot && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              <h2 className="text-xl font-bold text-gray-900">Meal Slot</h2>
+            </div>
+            <div className="text-gray-600">
+              <div className="font-semibold text-gray-900">
+                {order.mealSlot.name}
+              </div>
+              <div className="flex items-center space-x-2 mt-2 text-sm">
+                <Clock className="w-4 h-4" />
+                <span>
+                  {order.mealSlot.startTime} - {order.mealSlot.endTime}
+                </span>
+              </div>
+              {order.preferredDeliveryStart && order.preferredDeliveryEnd && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1">
+                    Preferred Delivery Window
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Clock className="w-4 h-4" />
+                    <span>
+                      {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Fulfillment Method */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center space-x-2 mb-4">
-            <MapPin className="w-5 h-5 text-blue-600" />
+            <Truck className="w-5 h-5 text-blue-600" />
             <h2 className="text-xl font-bold text-gray-900">
-              Delivery Address
+              Fulfillment Method
             </h2>
           </div>
-          <div className="text-gray-600">
-            <div className="font-semibold text-gray-900">
-              {order.deliveryAddress.label}
-            </div>
-            <div className="mt-2 text-sm">
-              {order.deliveryAddress.street}
-              <br />
-              {order.deliveryAddress.landmark}
-              <br />
-              {order.deliveryAddress.city}, {order.deliveryAddress.state}
-              <br />
-              {order.deliveryAddress.pincode}
-            </div>
+          <div className="flex items-center space-x-3">
+            {(() => {
+              const methodDetails = getFulfillmentMethodDetails();
+              const MethodIcon = methodDetails.icon;
+              return (
+                <>
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <MethodIcon className={`w-6 h-6 ${methodDetails.color}`} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {methodDetails.label}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {order.fulfillmentMethod === 'EAT_IN' && 'Dine in at the restaurant'}
+                      {order.fulfillmentMethod === 'PICKUP' && 'Pick up from the restaurant'}
+                      {order.fulfillmentMethod === 'DELIVERY' && 'Delivered to your address'}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Delivery Address */}
+        {order.fulfillmentMethod === 'DELIVERY' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              <h2 className="text-xl font-bold text-gray-900">
+                Delivery Address
+              </h2>
+            </div>
+            <div className="text-gray-600">
+              <div className="font-semibold text-gray-900">
+                {order.deliveryAddress.label}
+              </div>
+              <div className="mt-2 text-sm">
+                {order.deliveryAddress.street}
+                <br />
+                {order.deliveryAddress.landmark}
+                <br />
+                {order.deliveryAddress.city}, {order.deliveryAddress.state}
+                <br />
+                {order.deliveryAddress.pincode}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Vendor Info */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">

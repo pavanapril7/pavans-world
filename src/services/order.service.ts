@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
-import { OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { OrderStatus, Prisma, UserRole, FulfillmentMethod } from '@prisma/client';
 import { notificationService } from './notification.service';
+import { MealSlotService } from './meal-slot.service';
+import { FulfillmentService } from './fulfillment.service';
 
 export interface CreateOrderInput {
   customerId: string;
@@ -14,6 +16,10 @@ export interface CreateOrderInput {
   deliveryFee: number;
   tax: number;
   total: number;
+  mealSlotId?: string;
+  fulfillmentMethod: FulfillmentMethod;
+  preferredDeliveryStart?: string;
+  preferredDeliveryEnd?: string;
 }
 
 export interface OrderFilters {
@@ -23,6 +29,8 @@ export interface OrderFilters {
   deliveryPartnerId?: string;
   startDate?: Date;
   endDate?: Date;
+  mealSlotId?: string;
+  fulfillmentMethod?: FulfillmentMethod;
 }
 
 export class OrderService {
@@ -55,7 +63,20 @@ export class OrderService {
    * Create a new order from cart or direct items
    */
   static async createOrder(data: CreateOrderInput) {
-    const { customerId, vendorId, deliveryAddressId, items, subtotal, deliveryFee, tax, total } = data;
+    const { 
+      customerId, 
+      vendorId, 
+      deliveryAddressId, 
+      items, 
+      subtotal, 
+      deliveryFee, 
+      tax, 
+      total,
+      mealSlotId,
+      fulfillmentMethod,
+      preferredDeliveryStart,
+      preferredDeliveryEnd,
+    } = data;
 
     // Verify customer exists
     const customer = await prisma.user.findUnique({
@@ -79,17 +100,50 @@ export class OrderService {
       throw new Error('Vendor is not currently active');
     }
 
-    // Verify delivery address exists and belongs to customer
-    const address = await prisma.address.findUnique({
-      where: { id: deliveryAddressId },
-    });
+    // Validate meal slot availability if provided
+    if (mealSlotId) {
+      const isAvailable = await MealSlotService.validateMealSlotAvailability(mealSlotId);
+      if (!isAvailable) {
+        throw new Error('Meal slot is not available for ordering');
+      }
 
-    if (!address) {
-      throw new Error('Delivery address not found');
+      // Validate delivery window if provided
+      if (preferredDeliveryStart && preferredDeliveryEnd) {
+        const mealSlot = await MealSlotService.getMealSlotById(mealSlotId);
+        const isValidWindow = MealSlotService.validateDeliveryWindow(
+          mealSlot,
+          preferredDeliveryStart,
+          preferredDeliveryEnd
+        );
+        if (!isValidWindow) {
+          throw new Error('Delivery window is not within meal slot time range');
+        }
+      }
     }
 
-    if (address.userId !== customerId) {
-      throw new Error('Delivery address does not belong to this customer');
+    // Validate fulfillment method is enabled for vendor
+    const isFulfillmentEnabled = await FulfillmentService.validateFulfillmentMethod(
+      vendorId,
+      fulfillmentMethod
+    );
+    if (!isFulfillmentEnabled) {
+      throw new Error(`${fulfillmentMethod} is not available for this vendor`);
+    }
+
+    // Validate delivery address requirement based on fulfillment method
+    if (FulfillmentService.requiresDeliveryAddress(fulfillmentMethod)) {
+      // Verify delivery address exists and belongs to customer
+      const address = await prisma.address.findUnique({
+        where: { id: deliveryAddressId },
+      });
+
+      if (!address) {
+        throw new Error('Delivery address not found');
+      }
+
+      if (address.userId !== customerId) {
+        throw new Error('Delivery address does not belong to this customer');
+      }
     }
 
     // Verify all products exist, are available, and belong to the vendor
@@ -131,6 +185,10 @@ export class OrderService {
           deliveryFee,
           tax,
           total,
+          mealSlotId,
+          fulfillmentMethod,
+          preferredDeliveryStart,
+          preferredDeliveryEnd,
         },
       });
 
@@ -248,6 +306,7 @@ export class OrderService {
           },
         },
         deliveryAddress: true,
+        mealSlot: true,
         items: {
           include: {
             product: {
@@ -318,6 +377,7 @@ export class OrderService {
           },
         },
         deliveryAddress: true,
+        mealSlot: true,
         items: {
           include: {
             product: {
@@ -404,6 +464,14 @@ export class OrderService {
       where.deliveryPartnerId = filters.deliveryPartnerId;
     }
 
+    if (filters.mealSlotId) {
+      where.mealSlotId = filters.mealSlotId;
+    }
+
+    if (filters.fulfillmentMethod) {
+      where.fulfillmentMethod = filters.fulfillmentMethod;
+    }
+
     if (filters.startDate || filters.endDate) {
       where.createdAt = {};
       if (filters.startDate) {
@@ -445,6 +513,14 @@ export class OrderService {
                   lastName: true,
                 },
               },
+            },
+          },
+          mealSlot: {
+            select: {
+              id: true,
+              name: true,
+              startTime: true,
+              endTime: true,
             },
           },
           items: {

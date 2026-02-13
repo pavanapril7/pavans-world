@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Package, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Package, Clock, CheckCircle, XCircle, Calendar, Store, ShoppingBag, Truck } from "lucide-react";
 
 interface Order {
   id: string;
@@ -10,6 +10,14 @@ interface Order {
   status: string;
   total: number;
   createdAt: string;
+  fulfillmentMethod: string;
+  preferredDeliveryStart?: string;
+  preferredDeliveryEnd?: string;
+  mealSlot?: {
+    name: string;
+    startTime: string;
+    endTime: string;
+  };
   vendor: {
     businessName: string;
   };
@@ -22,15 +30,21 @@ interface Order {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fulfillmentFilter, setFulfillmentFilter] = useState<string>("");
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fulfillmentFilter]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/orders");
+      const params = new URLSearchParams();
+      if (fulfillmentFilter) {
+        params.append('fulfillmentMethod', fulfillmentFilter);
+      }
+      
+      const response = await fetch(`/api/orders?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         // API returns { orders: [], pagination: {} }
@@ -77,6 +91,32 @@ export default function OrdersPage() {
     }
   };
 
+  const getFulfillmentIcon = (method: string) => {
+    switch (method) {
+      case 'EAT_IN':
+        return <Store className="w-4 h-4" />;
+      case 'PICKUP':
+        return <ShoppingBag className="w-4 h-4" />;
+      case 'DELIVERY':
+        return <Truck className="w-4 h-4" />;
+      default:
+        return <Truck className="w-4 h-4" />;
+    }
+  };
+
+  const getFulfillmentLabel = (method: string) => {
+    switch (method) {
+      case 'EAT_IN':
+        return 'Dine In';
+      case 'PICKUP':
+        return 'Pickup';
+      case 'DELIVERY':
+        return 'Delivery';
+      default:
+        return 'Delivery';
+    }
+  };
+
   const formatPrice = (price: number | any) => {
     return `₹${Number(price).toFixed(2)}`;
   };
@@ -106,6 +146,25 @@ export default function OrdersPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
         <p className="text-gray-600 mt-2">Track and manage your orders</p>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700">
+            Filter by Fulfillment:
+          </label>
+          <select
+            value={fulfillmentFilter}
+            onChange={(e) => setFulfillmentFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Methods</option>
+            <option value="DELIVERY">Delivery</option>
+            <option value="PICKUP">Pickup</option>
+            <option value="EAT_IN">Dine In</option>
+          </select>
+        </div>
       </div>
 
       {/* Orders List */}
@@ -166,17 +225,45 @@ export default function OrdersPage() {
               </div>
 
               <div className="border-t border-gray-200 pt-4">
-                <div className="text-sm text-gray-600">
-                  {order.items.slice(0, 2).map((item, index) => (
-                    <div key={index}>
-                      {item.productName} × {item.quantity}
+                <div className="flex items-start justify-between">
+                  <div className="text-sm text-gray-600 flex-1">
+                    {order.items.slice(0, 2).map((item, index) => (
+                      <div key={index}>
+                        {item.productName} × {item.quantity}
+                      </div>
+                    ))}
+                    {order.items.length > 2 && (
+                      <div className="text-gray-500 mt-1">
+                        +{order.items.length - 2} more item(s)
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="ml-4 space-y-2">
+                    {/* Fulfillment Method Badge */}
+                    <div className="flex items-center space-x-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                      {getFulfillmentIcon(order.fulfillmentMethod)}
+                      <span>{getFulfillmentLabel(order.fulfillmentMethod)}</span>
                     </div>
-                  ))}
-                  {order.items.length > 2 && (
-                    <div className="text-gray-500 mt-1">
-                      +{order.items.length - 2} more item(s)
-                    </div>
-                  )}
+                    
+                    {/* Meal Slot Info */}
+                    {order.mealSlot && (
+                      <div className="flex items-center space-x-1 text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                        <Calendar className="w-3 h-3" />
+                        <span>{order.mealSlot.name}</span>
+                      </div>
+                    )}
+                    
+                    {/* Delivery Window */}
+                    {order.preferredDeliveryStart && order.preferredDeliveryEnd && (
+                      <div className="flex items-center space-x-1 text-xs text-gray-600 bg-green-50 px-2 py-1 rounded">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </Link>

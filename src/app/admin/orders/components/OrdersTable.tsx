@@ -33,6 +33,15 @@ export interface AdminOrder {
   status: OrderStatus;
   total: number | string;
   createdAt: string | Date;
+  fulfillmentMethod: string;
+  mealSlot?: {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  } | null;
+  preferredDeliveryStart?: string | null;
+  preferredDeliveryEnd?: string | null;
   payment: {
     id: string;
     method: string;
@@ -73,6 +82,13 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
   REJECTED: 'Rejected',
+};
+
+// Fulfillment method labels
+const FULFILLMENT_METHOD_LABELS: Record<string, string> = {
+  DELIVERY: 'Delivery',
+  PICKUP: 'Pickup',
+  EAT_IN: 'Dine In',
 };
 
 export default function OrdersTable({ orders, loading, onOrderSelect }: OrdersTableProps) {
@@ -160,6 +176,18 @@ export default function OrdersTable({ orders, loading, onOrderSelect }: OrdersTa
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
+                Fulfillment
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Meal Slot
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Total
               </th>
               <th
@@ -203,6 +231,25 @@ export default function OrdersTable({ orders, loading, onOrderSelect }: OrdersTa
                   >
                     {STATUS_LABELS[order.status]}
                   </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {FULFILLMENT_METHOD_LABELS[order.fulfillmentMethod] || order.fulfillmentMethod}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {order.mealSlot ? (
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-900">{order.mealSlot.name}</div>
+                      {order.preferredDeliveryStart && order.preferredDeliveryEnd && (
+                        <div className="text-xs text-gray-500">
+                          {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">

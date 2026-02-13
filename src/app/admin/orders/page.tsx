@@ -8,6 +8,7 @@ import OrderFilters, {
   OrderFilters as OrderFiltersType,
   VendorOption,
   CustomerOption,
+  MealSlotOption,
 } from './components/OrderFilters';
 import OrdersTable, { AdminOrder } from './components/OrdersTable';
 import PaginationControls from './components/PaginationControls';
@@ -26,6 +27,12 @@ interface UserResponse {
   email: string;
 }
 
+interface MealSlotResponse {
+  id: string;
+  name: string;
+  vendorId: string;
+}
+
 interface PaginationState {
   currentPage: number;
   totalPages: number;
@@ -40,9 +47,10 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
-// In-memory cache for vendor and customer lists
+// In-memory cache for vendor, customer, and meal slot lists
 let vendorsCache: CacheEntry<VendorOption[]> | null = null;
 let customersCache: CacheEntry<CustomerOption[]> | null = null;
+let mealSlotsCache: CacheEntry<MealSlotOption[]> | null = null;
 
 export default function AdminOrdersPage() {
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -52,6 +60,7 @@ export default function AdminOrdersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [vendors, setVendors] = useState<VendorOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [mealSlots, setMealSlots] = useState<MealSlotOption[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -68,6 +77,8 @@ export default function AdminOrdersPage() {
     dateFrom: '',
     dateTo: '',
     searchQuery: '',
+    mealSlotId: '',
+    fulfillmentMethod: '',
   });
 
   const fetchOrders = useCallback(async () => {
@@ -81,6 +92,8 @@ export default function AdminOrdersPage() {
       if (filters.dateFrom) queryParams.append('dateFrom', filters.dateFrom);
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
       if (filters.searchQuery) queryParams.append('search', filters.searchQuery);
+      if (filters.mealSlotId) queryParams.append('mealSlotId', filters.mealSlotId);
+      if (filters.fulfillmentMethod) queryParams.append('fulfillmentMethod', filters.fulfillmentMethod);
       queryParams.append('page', pagination.currentPage.toString());
       queryParams.append('pageSize', pagination.pageSize.toString());
 
@@ -217,9 +230,47 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const fetchMealSlots = async () => {
+    try {
+      // Check cache first
+      if (mealSlotsCache && Date.now() - mealSlotsCache.timestamp < CACHE_TTL) {
+        setMealSlots(mealSlotsCache.data);
+        return;
+      }
+
+      // Fetch meal slots from all vendors
+      const response = await fetch('/api/admin/meal-slots');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch meal slots');
+      }
+      
+      const data = await response.json();
+      const slots = Array.isArray(data.data) ? data.data : [];
+      const mealSlotOptions = slots.map((slot: MealSlotResponse) => ({
+        id: slot.id,
+        name: slot.name,
+        vendorId: slot.vendorId,
+      }));
+      
+      // Update cache
+      mealSlotsCache = {
+        data: mealSlotOptions,
+        timestamp: Date.now(),
+      };
+      
+      setMealSlots(mealSlotOptions);
+    } catch (error) {
+      console.error('Failed to fetch meal slots:', error);
+      // Graceful degradation - meal slot filter will be disabled
+      setMealSlots([]);
+    }
+  };
+
   useEffect(() => {
     fetchVendors();
     fetchCustomers();
+    fetchMealSlots();
   }, []);
 
   useEffect(() => {
@@ -327,6 +378,7 @@ export default function AdminOrdersPage() {
         onFilterChange={handleFilterChange}
         vendors={vendors}
         customers={customers}
+        mealSlots={mealSlots}
         loading={loading}
       />
 

@@ -12,6 +12,8 @@ export interface OrderFilters {
   dateFrom: string;
   dateTo: string;
   searchQuery: string;
+  mealSlotId: string;
+  fulfillmentMethod: string;
 }
 
 export interface VendorOption {
@@ -25,11 +27,18 @@ export interface CustomerOption {
   email: string;
 }
 
+export interface MealSlotOption {
+  id: string;
+  name: string;
+  vendorId: string;
+}
+
 interface OrderFiltersProps {
   filters: OrderFilters;
   onFilterChange: (filters: OrderFilters) => void;
   vendors: VendorOption[];
   customers: CustomerOption[];
+  mealSlots: MealSlotOption[];
   loading?: boolean;
 }
 
@@ -47,11 +56,19 @@ const ORDER_STATUS_OPTIONS: { value: OrderStatus | ''; label: string }[] = [
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
+const FULFILLMENT_METHOD_OPTIONS = [
+  { value: '', label: 'All Methods' },
+  { value: 'DELIVERY', label: 'Delivery' },
+  { value: 'PICKUP', label: 'Pickup' },
+  { value: 'EAT_IN', label: 'Dine In' },
+];
+
 export default function OrderFilters({
   filters,
   onFilterChange,
   vendors,
   customers,
+  mealSlots,
   loading = false,
 }: OrderFiltersProps) {
   const [localFilters, setLocalFilters] = useState<OrderFilters>(filters);
@@ -135,6 +152,8 @@ export default function OrderFilters({
       dateFrom: '',
       dateTo: '',
       searchQuery: '',
+      mealSlotId: '',
+      fulfillmentMethod: '',
     };
     setLocalFilters(clearedFilters);
     setValidationError(null);
@@ -147,7 +166,9 @@ export default function OrderFilters({
     localFilters.customerId ||
     localFilters.dateFrom ||
     localFilters.dateTo ||
-    localFilters.searchQuery;
+    localFilters.searchQuery ||
+    localFilters.mealSlotId ||
+    localFilters.fulfillmentMethod;
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
@@ -294,6 +315,47 @@ export default function OrderFilters({
             disabled={loading}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
+        </div>
+
+        {/* Meal Slot Filter */}
+        <div>
+          <label htmlFor="mealSlot" className="block text-sm font-medium text-gray-700 mb-1">
+            Meal Slot
+          </label>
+          <select
+            id="mealSlot"
+            value={localFilters.mealSlotId}
+            onChange={(e) => handleFilterUpdate('mealSlotId', e.target.value)}
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            <option value="">All Meal Slots</option>
+            {mealSlots.map((slot) => (
+              <option key={slot.id} value={slot.id}>
+                {slot.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Fulfillment Method Filter */}
+        <div>
+          <label htmlFor="fulfillmentMethod" className="block text-sm font-medium text-gray-700 mb-1">
+            Fulfillment Method
+          </label>
+          <select
+            id="fulfillmentMethod"
+            value={localFilters.fulfillmentMethod}
+            onChange={(e) => handleFilterUpdate('fulfillmentMethod', e.target.value)}
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            {FULFILLMENT_METHOD_OPTIONS.map((option) => (
+              <option key={option.value || 'all'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </div>

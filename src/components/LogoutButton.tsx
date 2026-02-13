@@ -15,15 +15,19 @@ export default function LogoutButton() {
       });
 
       if (response.ok) {
-        router.push('/auth/login');
+        // Clear all session storage
+        sessionStorage.clear();
+        
+        // Use window.location for a full page reload to ensure clean state
+        window.location.href = '/auth/login';
       } else {
         console.error('Logout failed');
         alert('Logout failed. Please try again.');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Logout error:', error);
       alert('Logout failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

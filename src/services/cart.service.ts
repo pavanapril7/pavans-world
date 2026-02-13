@@ -94,6 +94,59 @@ export class CartService {
   }
 
   /**
+   * Get all carts for a customer
+   * Returns all carts with items
+   */
+  static async getAllCarts(customerId: string) {
+    const carts = await prisma.cart.findMany({
+      where: { customerId },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                vendor: {
+                  select: {
+                    id: true,
+                    businessName: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        vendor: {
+          select: {
+            id: true,
+            businessName: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+
+    return carts;
+  }
+
+  /**
+   * Get total cart item count for a customer (across all vendors)
+   */
+  static async getCartItemCount(customerId: string): Promise<number> {
+    const carts = await prisma.cart.findMany({
+      where: { customerId },
+      include: {
+        items: true,
+      },
+    });
+
+    return carts.reduce((total, cart) => total + cart.items.length, 0);
+  }
+
+  /**
    * Calculate cart total
    */
   static calculateCartTotal(cart: {
