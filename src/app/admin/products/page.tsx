@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Package, Search, Filter, Eye, Edit, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ImageUpload } from '@/components/ImageUpload';
 import Image from 'next/image';
 
 interface Product {
@@ -595,27 +596,17 @@ function AdminProductsContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Image URL
+                  Product Image
                 </label>
-                <input
-                  type="url"
-                  value={editForm.imageUrl}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, imageUrl: e.target.value })
+                <ImageUpload
+                  currentImageUrl={editForm.imageUrl}
+                  onUploadSuccess={(url) =>
+                    setEditForm({ ...editForm, imageUrl: url })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  uploadEndpoint={`/api/admin/products/${editingProduct.id}/image`}
+                  type="product"
+                  alt={editForm.name || 'Product image'}
                 />
-                {editForm.imageUrl && (
-                  <div className="mt-2">
-                    <Image
-                      src={editForm.imageUrl}
-                      alt="Preview"
-                      width={100}
-                      height={100}
-                      className="rounded-lg object-cover"
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">

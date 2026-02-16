@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ImageUpload } from '@/components/ImageUpload';
 
 interface VendorProfile {
   id: string;
@@ -9,6 +10,7 @@ interface VendorProfile {
   status: string;
   rating: number | null;
   totalOrders: number;
+  imageUrl?: string | null;
   category: {
     id: string;
     name: string;
@@ -115,6 +117,16 @@ export default function VendorProfilePage() {
     }
   };
 
+  const handleImageUploadSuccess = (url: string) => {
+    // Update the vendor state with the new image URL
+    if (vendor) {
+      setVendor({
+        ...vendor,
+        imageUrl: url,
+      });
+    }
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -217,6 +229,19 @@ export default function VendorProfilePage() {
       <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Business Information</h2>
         <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Profile Image
+            </label>
+            <ImageUpload
+              currentImageUrl={vendor.imageUrl}
+              onUploadSuccess={handleImageUploadSuccess}
+              uploadEndpoint={`/api/vendors/${vendor.id}/image`}
+              type="vendor"
+              alt={`${vendor.businessName} profile image`}
+            />
+          </div>
+
           <div>
             <label
               htmlFor="businessName"

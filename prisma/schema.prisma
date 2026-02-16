@@ -183,6 +183,7 @@ model Vendor {
   totalOrders   Int          @default(0)
   status        VendorStatus @default(PENDING_APPROVAL)
   serviceAreaId String
+  imageUrl      String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -209,7 +210,7 @@ model Product {
   name        String
   description String
   price       Decimal       @db.Decimal(10, 2)
-  imageUrl    String
+  imageUrl    String?
   status      ProductStatus @default(AVAILABLE)
   category    String
   createdAt   DateTime      @default(now())

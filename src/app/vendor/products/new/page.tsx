@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ImageUpload } from '@/components/ImageUpload';
 
 export default function NewProductPage() {
   const router = useRouter();
   const [vendorId, setVendorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -54,15 +56,31 @@ export default function NewProductPage() {
         throw new Error('Vendor ID not found');
       }
 
+      // Prepare payload without empty imageUrl
+      const payload: {
+        name: string;
+        description: string;
+        price: number;
+        category: string;
+        imageUrl?: string;
+      } = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+      };
+
+      // Only include imageUrl if it's not empty
+      if (formData.imageUrl) {
+        payload.imageUrl = formData.imageUrl;
+      }
+
       const res = await fetch(`/api/vendors/${vendorId}/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -70,12 +88,24 @@ export default function NewProductPage() {
         throw new Error(errorData.error?.message || 'Failed to create product');
       }
 
-      router.push('/vendor/products');
+      const data = await res.json();
+      setCreatedProductId(data.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageUploadSuccess = (url: string) => {
+    setFormData({
+      ...formData,
+      imageUrl: url,
+    });
+  };
+
+  const handleFinish = () => {
+    router.push('/vendor/products');
   };
 
   const handleChange = (
@@ -86,6 +116,48 @@ export default function NewProductPage() {
       [e.target.name]: e.target.value,
     });
   };
+
+  // Show image upload step after product is created
+  if (createdProductId) {
+    return (
+      <div className="px-4 py-6">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Add Product Image</h1>
+
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-green-800">Product created successfully! Now add an image (optional).</p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Image
+                </label>
+                <ImageUpload
+                  currentImageUrl={formData.imageUrl}
+                  onUploadSuccess={handleImageUploadSuccess}
+                  uploadEndpoint={`/api/products/${createdProductId}/image`}
+                  type="product"
+                  alt={`${formData.name} product image`}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                {formData.imageUrl ? 'Finish' : 'Skip & Finish'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-6">
@@ -160,20 +232,6 @@ export default function NewProductPage() {
                 name="category"
                 required
                 value={formData.category}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
-                Image URL
-              </label>
-              <input
-                type="url"
-                id="imageUrl"
-                name="imageUrl"
-                value={formData.imageUrl}
                 onChange={handleChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />

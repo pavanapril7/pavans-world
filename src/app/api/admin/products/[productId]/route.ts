@@ -9,7 +9,10 @@ const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   price: z.number().positive().optional(),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().min(1).refine(
+    (val) => val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/'),
+    'Image URL must be a valid URL or relative path'
+  ).optional(),
   category: z.string().optional(),
 });
 

@@ -11,4 +11,7 @@ module.exports = {
     '!src/**/*.d.ts',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
 };

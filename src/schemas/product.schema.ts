@@ -6,7 +6,10 @@ export const createProductSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(200, 'Product name too long'),
   description: z.string().min(1, 'Description is required').max(1000, 'Description too long'),
   price: z.coerce.number().positive('Price must be positive').multipleOf(0.01, 'Price must have at most 2 decimal places'),
-  imageUrl: z.string().url('Invalid image URL').max(500, 'Image URL too long'),
+  imageUrl: z.string().max(500, 'Image URL too long').refine(
+    (val) => val === '' || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/'),
+    'Image URL must be a valid URL or relative path'
+  ).optional(),
   category: z.string().min(1, 'Category is required').max(100, 'Category too long'),
   status: z.nativeEnum(ProductStatus).default(ProductStatus.AVAILABLE),
 });
@@ -16,7 +19,10 @@ export const updateProductSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(200, 'Product name too long').optional(),
   description: z.string().min(1, 'Description is required').max(1000, 'Description too long').optional(),
   price: z.coerce.number().positive('Price must be positive').multipleOf(0.01, 'Price must have at most 2 decimal places').optional(),
-  imageUrl: z.string().url('Invalid image URL').max(500, 'Image URL too long').optional(),
+  imageUrl: z.string().min(1, 'Image URL is required').max(500, 'Image URL too long').refine(
+    (val) => val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/'),
+    'Image URL must be a valid URL or relative path'
+  ).optional(),
   category: z.string().min(1, 'Category is required').max(100, 'Category too long').optional(),
   status: z.nativeEnum(ProductStatus).optional(),
 });

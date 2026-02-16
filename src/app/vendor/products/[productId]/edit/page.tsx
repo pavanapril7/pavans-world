@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { ImageUpload } from '@/components/ImageUpload';
 
 export default function EditProductPage({
   params,
@@ -115,6 +116,14 @@ export default function EditProductPage({
     });
   };
 
+  const handleImageUploadSuccess = (url: string) => {
+    // Update the form data with the new image URL
+    setFormData({
+      ...formData,
+      imageUrl: url,
+    });
+  };
+
   if (loading) {
     return (
       <div className="px-4 py-6">
@@ -136,6 +145,19 @@ export default function EditProductPage({
 
         <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6">
           <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Image
+              </label>
+              <ImageUpload
+                currentImageUrl={formData.imageUrl}
+                onUploadSuccess={handleImageUploadSuccess}
+                uploadEndpoint={`/api/products/${resolvedParams.productId}/image`}
+                type="product"
+                alt={`${formData.name} product image`}
+              />
+            </div>
+
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Product Name *
@@ -196,20 +218,6 @@ export default function EditProductPage({
                 name="category"
                 required
                 value={formData.category}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
-                Image URL
-              </label>
-              <input
-                type="url"
-                id="imageUrl"
-                name="imageUrl"
-                value={formData.imageUrl}
                 onChange={handleChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
