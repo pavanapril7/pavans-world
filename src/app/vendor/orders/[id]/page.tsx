@@ -80,8 +80,9 @@ export default function VendorOrderDetailPage({
       if (!res.ok) {
         throw new Error('Failed to fetch order');
       }
-      const data = await res.json();
-      setOrder(data);
+      const response = await res.json();
+      // API returns { data: order }
+      setOrder(response.data || response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -346,26 +347,30 @@ export default function VendorOrderDetailPage({
         {/* Customer Information */}
         <div className="border-t border-gray-200 pt-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Customer Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Name</p>
-              <p className="text-base font-medium">
-                {order.customer.firstName} {order.customer.lastName}
-              </p>
+          {order.customer ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Name</p>
+                <p className="text-base font-medium">
+                  {order.customer.firstName} {order.customer.lastName}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Phone</p>
+                <p className="text-base font-medium">{order.customer.phone}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-base font-medium">{order.customer.email}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Phone</p>
-              <p className="text-base font-medium">{order.customer.phone}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Email</p>
-              <p className="text-base font-medium">{order.customer.email}</p>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-500">Customer information not available</p>
+          )}
         </div>
 
         {/* Delivery Address */}
-        {order.fulfillmentMethod === 'DELIVERY' && (
+        {order.fulfillmentMethod === 'DELIVERY' && order.deliveryAddress && (
           <div className="border-t border-gray-200 pt-6 mb-6">
             <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
             <p className="text-base">

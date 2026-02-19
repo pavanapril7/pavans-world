@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import type { CreateAddressInput, UpdateAddressInput } from '@/schemas/user.schema';
+import type { AddressWithCoordinates, UpdateAddressWithCoordinates } from '@/schemas/geolocation.schema';
+import { GeoLocationService } from './geolocation.service';
 
 export class AddressService {
   /**
@@ -37,8 +39,9 @@ export class AddressService {
 
   /**
    * Create a new address for a user
+   * Supports both CreateAddressInput and AddressWithCoordinates
    */
-  static async createAddress(userId: string, data: CreateAddressInput) {
+  static async createAddress(userId: string, data: CreateAddressInput | AddressWithCoordinates) {
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -46,6 +49,13 @@ export class AddressService {
 
     if (!user) {
       throw new Error('User not found');
+    }
+
+    // Validate coordinates if provided
+    if ('latitude' in data && 'longitude' in data && data.latitude !== undefined && data.longitude !== undefined) {
+      if (!GeoLocationService.validateCoordinates(data.latitude, data.longitude)) {
+        throw new Error('Invalid coordinates provided');
+      }
     }
 
     // If this is set as default, unset other default addresses
@@ -68,7 +78,7 @@ export class AddressService {
 
     const isDefault = data.isDefault || existingAddressCount === 0;
 
-    // Create address
+    // Create address with optional coordinates
     const address = await prisma.address.create({
       data: {
         userId,
@@ -78,6 +88,8 @@ export class AddressService {
         city: data.city,
         state: data.state,
         pincode: data.pincode,
+        latitude: 'latitude' in data ? data.latitude : undefined,
+        longitude: 'longitude' in data ? data.longitude : undefined,
         isDefault,
       },
     });
@@ -87,8 +99,9 @@ export class AddressService {
 
   /**
    * Update an address
+   * Supports both UpdateAddressInput and UpdateAddressWithCoordinates
    */
-  static async updateAddress(addressId: string, userId: string, data: UpdateAddressInput) {
+  static async updateAddress(addressId: string, userId: string, data: UpdateAddressInput | UpdateAddressWithCoordinates) {
     // Check if address exists and belongs to user
     const existingAddress = await prisma.address.findFirst({
       where: {
@@ -99,6 +112,28 @@ export class AddressService {
 
     if (!existingAddress) {
       throw new Error('Address not found');
+    }
+
+    // Validate coordinates if provided
+    if ('latitude' in data && 'longitude' in data && data.latitude !== undefined && data.longitude !== undefined) {
+      if (!GeoLocationService.validateCoordinates(data.latitude, data.longitude)) {
+        throw new Error('Invalid coordinates provided');
+      }
+
+      // Validate coordinate-address consistency (within 10km)
+      // If address already has coordinates, check distance
+      if (existingAddress.latitude && existingAddress.longitude) {
+        const distance = await GeoLocationService.calculateDistance(
+          existingAddress.latitude,
+          existingAddress.longitude,
+          data.latitude,
+          data.longitude
+        );
+
+        if (distance > 10) {
+          throw new Error('Coordinates do not match address location (distance exceeds 10km)');
+        }
+      }
     }
 
     // If setting as default, unset other default addresses
@@ -126,6 +161,8 @@ export class AddressService {
         ...(data.state && { state: data.state }),
         ...(data.pincode && { pincode: data.pincode }),
         ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
+        ...('latitude' in data && data.latitude !== undefined && { latitude: data.latitude }),
+        ...('longitude' in data && data.longitude !== undefined && { longitude: data.longitude }),
       },
     });
 

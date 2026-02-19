@@ -29,6 +29,7 @@ export class DeliveryService {
     const where: any = {
       status: OrderStatus.READY_FOR_PICKUP,
       deliveryPartnerId: null, // Not yet assigned
+      fulfillmentMethod: 'DELIVERY', // Only delivery orders
     };
 
     // Filter by service area - orders from vendors in the same service area
@@ -48,6 +49,7 @@ export class DeliveryService {
           select: {
             id: true,
             businessName: true,
+            serviceAreaId: true,
             user: {
               select: {
                 phone: true,

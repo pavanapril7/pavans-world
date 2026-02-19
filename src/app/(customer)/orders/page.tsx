@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Package, Clock, CheckCircle, XCircle, Calendar, Store, ShoppingBag, Truck } from "lucide-react";
+import { Package, Clock, CheckCircle, XCircle, Calendar, Store, ShoppingBag, Truck, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Order {
   id: string;
@@ -28,6 +29,7 @@ interface Order {
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string>("");
@@ -262,6 +264,21 @@ export default function OrdersPage() {
                           {order.preferredDeliveryStart} - {order.preferredDeliveryEnd}
                         </span>
                       </div>
+                    )}
+                    
+                    {/* Track Order Link */}
+                    {order.fulfillmentMethod === 'DELIVERY' && ['IN_TRANSIT', 'PICKED_UP', 'PREPARING', 'ACCEPTED'].includes(order.status) && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          router.push(`/orders/${order.id}/track`);
+                        }}
+                        className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>Track Order</span>
+                      </button>
                     )}
                   </div>
                 </div>

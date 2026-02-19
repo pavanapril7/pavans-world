@@ -40,7 +40,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(order, { status: 200 });
+    return NextResponse.json({ data: order }, { status: 200 });
   } catch (error) {
     console.error('Error getting order:', error);
 

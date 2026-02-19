@@ -47,6 +47,35 @@ export async function POST(
     const { id } = await params;
     const order = await OrderService.markOrderReady(id, vendor.id);
 
+    // Trigger proximity-based delivery partner notifications
+    try {
+      // Call the notify-delivery-partners endpoint internally
+      const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const notifyUrl = `${apiUrl}/api/orders/${id}/notify-delivery-partners`;
+      
+      console.log(`🔔 Triggering delivery partner notifications for order ${id}...`);
+      
+      const notifyResponse = await fetch(notifyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': request.headers.get('cookie') || '',
+        },
+      });
+
+      if (!notifyResponse.ok) {
+        const errorText = await notifyResponse.text();
+        console.error(`❌ Failed to notify delivery partners (${notifyResponse.status}):`, errorText);
+        // Continue execution - notification failure shouldn't block the response
+      } else {
+        const result = await notifyResponse.json();
+        console.log(`✅ Delivery partner notifications sent:`, result);
+      }
+    } catch (notifyError) {
+      console.error('❌ Error triggering delivery partner notifications:', notifyError);
+      // Continue execution - notification failure shouldn't block the response
+    }
+
     return NextResponse.json(order, { status: 200 });
   } catch (error) {
     console.error('Error marking order as ready:', error);

@@ -267,72 +267,77 @@ export class OrderService {
    * Get order by ID with full details
    */
   static async getOrderById(id: string) {
-    const order = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            phone: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        vendor: {
-          select: {
-            id: true,
-            businessName: true,
-            status: true,
-            user: {
-              select: {
-                phone: true,
-              },
-            },
-          },
-        },
-        deliveryPartner: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                phone: true,
-              },
-            },
-            vehicleType: true,
-            vehicleNumber: true,
-          },
-        },
-        deliveryAddress: true,
-        mealSlot: true,
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                imageUrl: true,
-              },
-            },
-          },
-        },
-        statusHistory: {
-          orderBy: {
-            timestamp: 'desc',
-          },
-        },
-        payment: true,
-      },
-    });
+      // Check if the id is a UUID or an order number
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-    if (!order) {
-      throw new Error('Order not found');
+      const order = await prisma.order.findFirst({
+        where: isUUID ? { id } : { orderNumber: id },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          vendor: {
+            select: {
+              id: true,
+              businessName: true,
+              status: true,
+              latitude: true,
+              longitude: true,
+              user: {
+                select: {
+                  phone: true,
+                },
+              },
+            },
+          },
+          deliveryPartner: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+              vehicleType: true,
+              vehicleNumber: true,
+            },
+          },
+          deliveryAddress: true,
+          mealSlot: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+          statusHistory: {
+            orderBy: {
+              timestamp: 'desc',
+            },
+          },
+          payment: true,
+        },
+      });
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      return order;
     }
-
-    return order;
-  }
 
   /**
    * Get order by order number

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAddressSchema } from '@/schemas/user.schema';
+import { addressWithCoordinatesSchema } from '@/schemas/geolocation.schema';
 import { ZodError } from 'zod';
 import { AddressService } from '@/services/address.service';
 import { withAuth, AuthUser } from '@/middleware/auth.middleware';
@@ -85,8 +85,8 @@ export const POST = withAuth(
         }, { status: 403 });
       }
 
-      // Validate request body
-      const validatedData = createAddressSchema.parse(body);
+      // Validate request body (now supports optional coordinates)
+      const validatedData = addressWithCoordinatesSchema.parse(body);
 
       // Create address
       const address = await AddressService.createAddress(userId, validatedData);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DeliveryService } from '@/services/delivery.service';
+import { LocationTrackingService } from '@/services/location-tracking.service';
 import { authenticate } from '@/middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -56,6 +57,35 @@ export async function PUT(
 
     // Mark as delivered
     const order = await DeliveryService.markDelivered(orderId, deliveryPartner.id);
+
+    // Clear delivery partner's current location
+    try {
+      await LocationTrackingService.clearDeliveryPartnerLocation(deliveryPartner.id);
+    } catch (locationError) {
+      console.error('Error clearing delivery partner location:', locationError);
+      // Continue execution - location clearing failure shouldn't block the response
+    }
+
+    // Send delivery_completed event via WebSocket
+    try {
+      const wsServerUrl = process.env.WEBSOCKET_HTTP_API_URL;
+      if (wsServerUrl) {
+        await fetch(`${wsServerUrl}/trigger/delivery-completed`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.WEBSOCKET_SERVER_SECRET || ''}`,
+          },
+          body: JSON.stringify({
+            deliveryId: orderId,
+            completedAt: new Date().toISOString(),
+          }),
+        });
+      }
+    } catch (wsError) {
+      console.error('Error sending WebSocket completion event:', wsError);
+      // Continue execution - WebSocket failure shouldn't block the response
+    }
 
     return NextResponse.json({
       success: true,

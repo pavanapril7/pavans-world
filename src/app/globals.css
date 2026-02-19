@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --background: 0 0% 100%;
@@ -98,4 +99,15 @@
 .theme-guest {
   --primary: var(--role-guest);
   --primary-foreground: var(--role-guest-foreground);
+}
+
+/* Leaflet map container fix */
+.leaflet-container {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
 }

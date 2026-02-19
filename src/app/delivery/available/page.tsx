@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Package, Clock, Navigation } from 'lucide-react';
+import { MapPin, Package, Clock, Navigation, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DeliveryRequest {
@@ -37,9 +37,42 @@ export default function AvailableDeliveriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [newDeliveryIds, setNewDeliveryIds] = useState<Set<string>>(new Set());
+  const [removedDeliveryIds, setRemovedDeliveryIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchAvailableDeliveries();
+    
+    // Listen for WebSocket events from the layout's DeliveryNotificationListener
+    const handleNewDelivery = () => {
+      fetchAvailableDeliveries();
+    };
+    
+    const handleDeliveryCancelled = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const orderId = customEvent.detail.orderId;
+      
+      // Mark delivery as removed with animation
+      setRemovedDeliveryIds(prev => new Set(prev).add(orderId));
+      
+      // Remove from list after animation
+      setTimeout(() => {
+        setDeliveries(prev => prev.filter(d => d.id !== orderId));
+        setRemovedDeliveryIds(prev => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+      }, 500);
+    };
+    
+    window.addEventListener('delivery-assigned', handleNewDelivery);
+    window.addEventListener('delivery-cancelled', handleDeliveryCancelled);
+    
+    return () => {
+      window.removeEventListener('delivery-assigned', handleNewDelivery);
+      window.removeEventListener('delivery-cancelled', handleDeliveryCancelled);
+    };
   }, []);
 
   const fetchAvailableDeliveries = async () => {
@@ -52,7 +85,26 @@ export default function AvailableDeliveriesPage() {
       }
 
       const result = await response.json();
-      setDeliveries(result.data || []);
+      const newDeliveries = result.data || [];
+      
+      // Identify new deliveries that weren't in the previous list
+      const previousIds = new Set(deliveries.map(d => d.id));
+      const currentIds = new Set(newDeliveries.map((d: DeliveryRequest) => d.id));
+      const newIds = new Set<string>(
+        newDeliveries
+          .filter((d: DeliveryRequest) => !previousIds.has(d.id))
+          .map((d: DeliveryRequest) => d.id)
+      );
+      
+      setNewDeliveryIds(newIds);
+      setDeliveries(newDeliveries);
+      
+      // Clear new delivery indicators after 10 seconds
+      if (newIds.size > 0) {
+        setTimeout(() => {
+          setNewDeliveryIds(new Set());
+        }, 10000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -125,29 +177,42 @@ export default function AvailableDeliveriesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {deliveries.map((delivery) => (
-            <div
-              key={delivery.id}
-              className="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Order #{delivery.orderNumber}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {delivery.vendor.businessName}
-                  </p>
+          {deliveries.map((delivery) => {
+            const isNew = newDeliveryIds.has(delivery.id);
+            const isRemoving = removedDeliveryIds.has(delivery.id);
+            
+            return (
+              <div
+                key={delivery.id}
+                className={`bg-white shadow rounded-lg p-6 hover:shadow-md transition-all ${
+                  isNew ? 'ring-2 ring-green-500 animate-pulse' : ''
+                } ${isRemoving ? 'opacity-50 scale-95' : ''}`}
+              >
+                {isNew && (
+                  <div className="flex items-center space-x-2 mb-3 text-green-600">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm font-semibold">New Delivery!</span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Order #{delivery.orderNumber}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {delivery.vendor.businessName}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-gray-900">
+                      ₹{Number(delivery.total).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(delivery.createdAt).toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">
-                    ₹{Number(delivery.total).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(delivery.createdAt).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
 
               <div className="space-y-3 mb-4">
                 {/* Pickup Location - Vendor Info */}
@@ -205,13 +270,14 @@ export default function AvailableDeliveriesPage() {
 
               <Button
                 onClick={() => handleAcceptDelivery(delivery.id)}
-                disabled={acceptingId === delivery.id}
+                disabled={acceptingId === delivery.id || isRemoving}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
                 {acceptingId === delivery.id ? 'Accepting...' : 'Accept Delivery'}
               </Button>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

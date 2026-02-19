@@ -1,4 +1,8 @@
+'use client';
+
 import Link from "next/link";
+import { Toaster } from "@/components/ui/sonner";
+import DeliveryNotificationListener from "@/components/DeliveryNotificationListener";
 
 export default function DeliveryPartnerLayout({
   children,
@@ -7,6 +11,12 @@ export default function DeliveryPartnerLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* WebSocket notification listener */}
+      <DeliveryNotificationListener />
+      
+      {/* Toast notifications */}
+      <Toaster position="top-right" richColors />
+      
       {/* Navigation removed - now in root layout */}
       
       {/* Main Content */}

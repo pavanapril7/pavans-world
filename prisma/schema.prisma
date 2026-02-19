@@ -174,18 +174,21 @@ model ServiceArea {
 }
 
 model Vendor {
-  id            String       @id @default(uuid())
-  userId        String       @unique
-  businessName  String
-  categoryId    String
-  description   String
-  rating        Decimal      @default(0) @db.Decimal(3, 2)
-  totalOrders   Int          @default(0)
-  status        VendorStatus @default(PENDING_APPROVAL)
-  serviceAreaId String
-  imageUrl      String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id              String       @id @default(uuid())
+  userId          String       @unique
+  businessName    String
+  categoryId      String
+  description     String
+  rating          Decimal      @default(0) @db.Decimal(3, 2)
+  totalOrders     Int          @default(0)
+  status          VendorStatus @default(PENDING_APPROVAL)
+  serviceAreaId   String
+  imageUrl        String?
+  latitude        Float?
+  longitude       Float?
+  serviceRadiusKm Decimal      @default(10) @db.Decimal(5, 2)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   // Relations
   user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -202,6 +205,7 @@ model Vendor {
   @@index([categoryId])
   @@index([serviceAreaId])
   @@index([status])
+  @@index([latitude, longitude])
 }
 
 model Product {
@@ -234,6 +238,8 @@ model Address {
   city      String
   state     String
   pincode   String
+  latitude  Float?
+  longitude Float?
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,28 +250,34 @@ model Address {
 
   @@index([userId])
   @@index([pincode])
+  @@index([latitude, longitude])
 }
 
 model DeliveryPartner {
-  id              String                @id @default(uuid())
-  userId          String                @unique
-  vehicleType     String?
-  vehicleNumber   String?
-  status          DeliveryPartnerStatus @default(OFFLINE)
-  serviceAreaId   String?
-  totalDeliveries Int                   @default(0)
-  rating          Decimal               @default(0) @db.Decimal(3, 2)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id                 String                @id @default(uuid())
+  userId             String                @unique
+  vehicleType        String?
+  vehicleNumber      String?
+  status             DeliveryPartnerStatus @default(OFFLINE)
+  serviceAreaId      String?
+  totalDeliveries    Int                   @default(0)
+  rating             Decimal               @default(0) @db.Decimal(3, 2)
+  currentLatitude    Float?
+  currentLongitude   Float?
+  lastLocationUpdate DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   // Relations
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceArea ServiceArea? @relation(fields: [serviceAreaId], references: [id])
-  orders      Order[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceArea     ServiceArea?      @relation(fields: [serviceAreaId], references: [id])
+  orders          Order[]
+  locationHistory LocationHistory[]
 
   @@index([userId])
   @@index([serviceAreaId])
   @@index([status])
+  @@index([currentLatitude, currentLongitude])
 }
 
 model Cart {
@@ -328,6 +340,7 @@ model Order {
   items           OrderItem[]
   statusHistory   OrderStatusHistory[]
   payment         Payment?
+  locationHistory LocationHistory[]
 
   @@index([orderNumber])
   @@index([customerId])
@@ -539,4 +552,21 @@ model VendorFulfillmentConfig {
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([vendorId])
+}
+
+model LocationHistory {
+  id                String          @id @default(uuid())
+  orderId           String
+  deliveryPartnerId String
+  latitude          Float
+  longitude         Float
+  timestamp         DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+
+  // Relations
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryPartner DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, timestamp])
+  @@index([deliveryPartnerId])
 }

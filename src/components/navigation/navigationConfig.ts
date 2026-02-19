@@ -172,6 +172,12 @@ export const navigationConfig: NavigationConfig = {
           label: 'Operating Hours',
           icon: Clock,
         },
+        {
+          href: '/vendor/location',
+          label: 'Location',
+          icon: MapPin,
+          description: 'Set your business location',
+        },
       ],
     },
     {

@@ -1,0 +1,16 @@
+# Ignore parent project files when deploying WebSocket server
+../__tests__/
+../.next/
+../coverage/
+../node_modules/
+../src/
+../public/
+
+# Keep only what's needed
+!../prisma/
+
+# Local files
+node_modules/
+dist/
+.env
+*.log

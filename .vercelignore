@@ -1,0 +1,10 @@
+# Ignore WebSocket server during Vercel deployment
+websocket-server/
+
+# Ignore test files
+__tests__/
+*.test.ts
+*.test.tsx
+
+# Ignore coverage
+coverage/

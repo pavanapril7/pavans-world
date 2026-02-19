@@ -1,8 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { MapPin, Plus, Edit, Trash2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Dynamically import AddressLocationPicker to avoid SSR issues with Leaflet
+const AddressLocationPicker = dynamic(
+  () => import('@/components/AddressLocationPicker').then((mod) => mod.AddressLocationPicker),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[200px] bg-gray-50 rounded-lg border border-gray-200">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-500">Loading map...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 interface Address {
   id: string;
@@ -13,6 +30,8 @@ interface Address {
   state: string;
   pincode: string;
   isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export default function AddressesPage() {
@@ -28,7 +47,19 @@ export default function AddressesPage() {
     state: "",
     pincode: "",
     isDefault: false,
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  // Memoized callback to prevent infinite re-renders
+  const handleLocationChange = useCallback((location: { latitude: number; longitude: number } | null) => {
+    setFormData((prev) => ({
+      ...prev,
+      latitude: location?.latitude ?? null,
+      longitude: location?.longitude ?? null,
+    }));
+  }, []);
 
   useEffect(() => {
     fetchAddresses();
@@ -63,8 +94,8 @@ export default function AddressesPage() {
 
       if (editingId) {
         // Update existing address
-        const response = await fetch(`/api/addresses/${editingId}`, {
-          method: "PUT",
+        const response = await fetch(`/api/users/${session.user.id}/addresses/${editingId}`, {
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
         });
@@ -73,6 +104,9 @@ export default function AddressesPage() {
           await fetchAddresses();
           resetForm();
           alert("Address updated successfully");
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error?.message || "Failed to update address");
         }
       } else {
         // Create new address
@@ -86,6 +120,9 @@ export default function AddressesPage() {
           await fetchAddresses();
           resetForm();
           alert("Address added successfully");
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error?.message || "Failed to add address");
         }
       }
     } catch (error) {
@@ -103,9 +140,12 @@ export default function AddressesPage() {
       state: address.state,
       pincode: address.pincode,
       isDefault: address.isDefault,
+      latitude: address.latitude || null,
+      longitude: address.longitude || null,
     });
     setEditingId(address.id);
     setShowForm(true);
+    setShowLocationPicker(!!(address.latitude && address.longitude));
   };
 
   const handleDelete = async (id: string) => {
@@ -114,13 +154,17 @@ export default function AddressesPage() {
     }
 
     try {
-      const response = await fetch(`/api/addresses/${id}`, {
+      const session = await fetch("/api/auth/session").then((r) => r.json());
+      const response = await fetch(`/api/users/${session.user.id}/addresses/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         await fetchAddresses();
         alert("Address deleted successfully");
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error?.message || "Failed to delete address");
       }
     } catch (error) {
       console.error("Failed to delete address:", error);
@@ -137,9 +181,12 @@ export default function AddressesPage() {
       state: "",
       pincode: "",
       isDefault: false,
+      latitude: null,
+      longitude: null,
     });
     setEditingId(null);
     setShowForm(false);
+    setShowLocationPicker(false);
   };
 
   if (loading) {
@@ -280,6 +327,39 @@ export default function AddressesPage() {
               <label htmlFor="isDefault" className="text-sm text-gray-700">
                 Set as default address
               </label>
+            </div>
+
+            {/* Location Picker Section */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Location Coordinates (Optional)
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Add precise location for better delivery service
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLocationPicker(!showLocationPicker)}
+                >
+                  {showLocationPicker ? 'Hide Map' : 'Add Location'}
+                </Button>
+              </div>
+
+              {showLocationPicker && (
+                <AddressLocationPicker
+                  initialLocation={
+                    formData.latitude && formData.longitude
+                      ? { latitude: formData.latitude, longitude: formData.longitude }
+                      : undefined
+                  }
+                  onLocationChange={handleLocationChange}
+                />
+              )}
             </div>
 
             <div className="flex space-x-3">

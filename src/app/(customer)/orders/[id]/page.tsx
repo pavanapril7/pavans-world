@@ -89,8 +89,8 @@ export default function OrderDetailPage() {
     try {
       const response = await fetch(`/api/orders/${orderId}`);
       if (response.ok) {
-        const data = await response.json();
-        setOrder(data);
+        const result = await response.json();
+        setOrder(result.data || result); // Handle both { data: {...} } and direct response
       }
     } catch (error) {
       console.error("Failed to fetch order:", error);
@@ -380,21 +380,23 @@ export default function OrderDetailPage() {
         )}
 
         {/* Vendor Info */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Package className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Vendor</h2>
-          </div>
-          <div className="text-gray-600">
-            <div className="font-semibold text-gray-900">
-              {order.vendor.businessName}
+        {order.vendor && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Package className="w-5 h-5 text-blue-600" />
+              <h2 className="text-xl font-bold text-gray-900">Vendor</h2>
             </div>
-            <div className="flex items-center space-x-2 mt-2 text-sm">
-              <Phone className="w-4 h-4" />
-              <span>{order.vendor.user.phone}</span>
+            <div className="text-gray-600">
+              <div className="font-semibold text-gray-900">
+                {order.vendor.businessName}
+              </div>
+              <div className="flex items-center space-x-2 mt-2 text-sm">
+                <Phone className="w-4 h-4" />
+                <span>{order.vendor.user.phone}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Delivery Partner Info */}
@@ -431,24 +433,30 @@ export default function OrderDetailPage() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Order Items</h2>
         <div className="space-y-4">
-          {order.items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between py-3 border-b border-gray-200 last:border-0"
-            >
-              <div className="flex-1">
-                <div className="font-medium text-gray-900">
-                  {item.productName}
+          {order.items && order.items.length > 0 ? (
+            order.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between py-3 border-b border-gray-200 last:border-0"
+              >
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">
+                    {item.productName}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {formatPrice(item.productPrice)} × {item.quantity}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {formatPrice(item.productPrice)} × {item.quantity}
+                <div className="font-semibold text-gray-900">
+                  {formatPrice(item.subtotal)}
                 </div>
               </div>
-              <div className="font-semibold text-gray-900">
-                {formatPrice(item.subtotal)}
-              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No items found in this order
             </div>
-          ))}
+          )}
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
@@ -477,22 +485,28 @@ export default function OrderDetailPage() {
           Status History
         </h2>
         <div className="space-y-3">
-          {order.statusHistory
-            .slice()
-            .reverse()
-            .map((history, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900">
-                    {history.status.replace(/_/g, " ")}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {formatDate(history.timestamp)}
+          {order.statusHistory && order.statusHistory.length > 0 ? (
+            order.statusHistory
+              .slice()
+              .reverse()
+              .map((history, index) => (
+                <div key={index} className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">
+                      {history.status.replace(/_/g, " ")}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {formatDate(history.timestamp)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              No status history available
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -38,6 +38,22 @@ const envSchema = z.object({
     }
   }, 'SUPABASE_URL must be a valid URL'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+
+  // WebSocket Server (for real-time tracking)
+  NEXT_PUBLIC_WEBSOCKET_SERVER_URL: z.string().min(1, 'NEXT_PUBLIC_WEBSOCKET_SERVER_URL is required'),
+  WEBSOCKET_SERVER_SECRET: z.string().min(1, 'WEBSOCKET_SERVER_SECRET is required'),
+  WEBSOCKET_HTTP_API_URL: z.string().min(1, 'WEBSOCKET_HTTP_API_URL is required').refine((val) => {
+    try {
+      new URL(val);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'WEBSOCKET_HTTP_API_URL must be a valid URL'),
+
+  // Map Configuration (at least one must be provided)
+  NEXT_PUBLIC_LEAFLET_TILE_URL: z.string().optional(),
+  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: z.string().optional(),
 });
 
 /**
@@ -55,6 +71,13 @@ export function validateEnv() {
           'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in production environment'
         );
       }
+    }
+
+    // Additional validation: At least one map configuration must be provided
+    if (!parsed.NEXT_PUBLIC_LEAFLET_TILE_URL && !parsed.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
+      throw new Error(
+        'At least one map configuration is required: NEXT_PUBLIC_LEAFLET_TILE_URL or NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN'
+      );
     }
 
     return parsed;
