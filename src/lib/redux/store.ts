@@ -1,10 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import exampleReducer from './slices/exampleSlice';
+import locationReducer from './slices/locationSlice';
 
 export const makeStore = () => {
   return configureStore({
     reducer: {
       example: exampleReducer,
+      location: locationReducer,
     },
   });
 };

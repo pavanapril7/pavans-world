@@ -10,8 +10,15 @@ export interface NotificationResult {
 export class DeliveryMatchingService {
   /**
    * Find and notify nearby delivery partners for an order
-   * Uses proximity-based matching with service area filtering
-   * Notifies up to 5 nearest delivery partners via WebSocket
+   * Enhanced with polygon validation:
+   * 1. Gets order with vendor and delivery address
+   * 2. Finds delivery partners in same service area
+   * 3. Validates partner location is within service area polygon using ST_Contains
+   * 4. Validates partner is within proximity threshold of vendor
+   * 5. Validates delivery address is within service area polygon
+   * 6. Sorts by distance to vendor
+   * 7. Takes top 5 nearest partners
+   * 8. Triggers WebSocket notifications
    */
   static async notifyNearbyDeliveryPartners(
     orderId: string,
@@ -39,6 +46,7 @@ export class DeliveryMatchingService {
             pincode: true,
             latitude: true,
             longitude: true,
+            serviceAreaId: true,
           },
         },
       },
@@ -53,14 +61,94 @@ export class DeliveryMatchingService {
       throw new Error('Vendor location not set');
     }
 
-    // Find available delivery partners within proximity threshold
-    const nearbyPartners = await GeoLocationService.findNearbyDeliveryPartners(
-      order.vendor.latitude,
-      order.vendor.longitude,
-      proximityThresholdKm,
-      order.vendor.serviceAreaId
+    // Verify delivery address has location
+    if (!order.deliveryAddress.latitude || !order.deliveryAddress.longitude) {
+      throw new Error('Delivery address location not set');
+    }
+
+    // Validate delivery address is within service area polygon
+    const addressValidation = await GeoLocationService.validatePointInServiceArea(
+      order.deliveryAddress.latitude,
+      order.deliveryAddress.longitude
     );
 
+    if (!addressValidation.isServiceable) {
+      throw new Error('Delivery address is outside serviceable area');
+    }
+
+    // Find delivery partners in same service area with polygon validation
+    // Validates partner location is within service area polygon using ST_Contains
+    // Validates partner is within proximity threshold of vendor
+    // Sorts by distance to vendor
+    const nearbyPartners = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        userId: string;
+        currentLatitude: number;
+        currentLongitude: number;
+        distanceKm: number;
+        status: string;
+      }>
+    >`
+      SELECT 
+        dp.id,
+        dp."userId",
+        dp."currentLatitude",
+        dp."currentLongitude",
+        dp.status,
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${order.vendor.longitude}, ${order.vendor.latitude}), 4326)::geography
+        ) / 1000 as "distanceKm"
+      FROM "DeliveryPartner" dp
+      INNER JOIN "ServiceArea" sa ON dp."serviceAreaId" = sa.id
+      WHERE 
+        dp.status = 'AVAILABLE'
+        AND dp."serviceAreaId" = ${order.vendor.serviceAreaId}
+        AND dp."currentLatitude" IS NOT NULL
+        AND dp."currentLongitude" IS NOT NULL
+        AND sa.boundary IS NOT NULL
+        AND ST_Contains(
+          sa.boundary,
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)
+        )
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${order.vendor.longitude}, ${order.vendor.latitude}), 4326)::geography,
+          ${proximityThresholdKm * 1000}
+        )
+      ORDER BY "distanceKm" ASC
+    `;
+    console.log(`
+      SELECT 
+        dp.id,
+        dp."userId",
+        dp."currentLatitude",
+        dp."currentLongitude",
+        dp.status,
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${order.vendor.longitude}, ${order.vendor.latitude}), 4326)::geography
+        ) / 1000 as "distanceKm"
+      FROM "DeliveryPartner" dp
+      INNER JOIN "ServiceArea" sa ON dp."serviceAreaId" = sa.id
+      WHERE 
+        dp.status = 'AVAILABLE'
+        AND dp."serviceAreaId" = ${order.vendor.serviceAreaId}
+        AND dp."currentLatitude" IS NOT NULL
+        AND dp."currentLongitude" IS NOT NULL
+        AND sa.boundary IS NOT NULL
+        AND ST_Contains(
+          sa.boundary,
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)
+        )
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(dp."currentLongitude", dp."currentLatitude"), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${order.vendor.longitude}, ${order.vendor.latitude}), 4326)::geography,
+          ${proximityThresholdKm * 1000}
+        )
+      ORDER BY "distanceKm" ASC
+    `);
     // Take top 5 nearest delivery partners
     const selectedPartners = nearbyPartners.slice(0, 5);
 

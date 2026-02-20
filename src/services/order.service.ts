@@ -3,6 +3,8 @@ import { OrderStatus, Prisma, UserRole, FulfillmentMethod } from '@prisma/client
 import { notificationService } from './notification.service';
 import { MealSlotService } from './meal-slot.service';
 import { FulfillmentService } from './fulfillment.service';
+import { VendorDiscoveryService } from './vendor-discovery.service';
+import { GeoLocationService } from './geolocation.service';
 
 export interface CreateOrderInput {
   customerId: string;
@@ -143,6 +145,37 @@ export class OrderService {
 
       if (address.userId !== customerId) {
         throw new Error('Delivery address does not belong to this customer');
+      }
+
+      // Polygon-based validation for delivery orders
+      // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+      if (address.latitude && address.longitude) {
+        // Validate delivery address is within service area polygon
+        const validation = await GeoLocationService.validatePointInServiceArea(
+          address.latitude,
+          address.longitude
+        );
+
+        if (!validation.isServiceable) {
+          throw new Error('Delivery address is outside serviceable area');
+        }
+
+        // Check if vendor can serve this address
+        const canServe = await VendorDiscoveryService.canVendorServeAddress(
+          vendorId,
+          deliveryAddressId
+        );
+
+        if (!canServe.canServe) {
+          // Provide specific error messages based on reason
+          if (canServe.reason?.includes('service area')) {
+            throw new Error('Vendor does not serve this location');
+          } else if (canServe.reason?.includes('delivery range')) {
+            throw new Error("Address is beyond vendor's delivery range");
+          } else {
+            throw new Error(canServe.reason || 'Vendor cannot serve this address');
+          }
+        }
       }
     }
 

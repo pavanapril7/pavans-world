@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ServiceAreaStatus } from '@prisma/client';
+import { wktToGeoJson, calculatePolygonCenter } from '@/lib/polygon-utils';
+import { getCachedServiceArea, setCachedServiceArea } from '@/lib/spatial-cache';
 
 export interface VendorWithDistance {
   id: string;
@@ -21,6 +23,31 @@ export interface DeliveryPartnerWithDistance {
   currentLongitude: number;
   distanceKm: number;
   status: string;
+}
+
+export interface ServiceAreaInfo {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  centerLatitude: number | null;
+  centerLongitude: number | null;
+}
+
+export interface PointInServiceAreaResult {
+  isServiceable: boolean;
+  serviceArea: ServiceAreaInfo | null;
+  nearestServiceArea: ServiceAreaInfo | null;
+  distanceToNearest: number | null;
+}
+
+export interface PolygonOverlapResult {
+  hasOverlap: boolean;
+  overlappingAreas: Array<{
+    id: string;
+    name: string;
+    overlapPercentage: number;
+  }>;
 }
 
 export class GeoLocationService {
@@ -225,5 +252,223 @@ export class GeoLocationService {
       distanceKm: Math.round(dp.distanceKm * 100) / 100,
       status: dp.status,
     }));
+  }
+
+  /**
+   * Find service area containing a given point using ST_Contains
+   * Returns the first ACTIVE service area that contains the point
+   * 
+   * @param latitude - Point latitude
+   * @param longitude - Point longitude
+   * @returns Service area info or null if point is outside all service areas
+   */
+  static async findServiceAreaForPoint(
+    latitude: number,
+    longitude: number
+  ): Promise<ServiceAreaInfo | null> {
+    // Validate coordinates
+    if (!this.validateCoordinates(latitude, longitude)) {
+      throw new Error('Invalid coordinates provided');
+    }
+
+    // Check cache first
+    const cached = await getCachedServiceArea(latitude, longitude);
+    if (cached) {
+      return cached;
+    }
+
+    // Query database if not cached
+    const result = await prisma.$queryRaw<ServiceAreaInfo[]>`
+      SELECT 
+        id,
+        name,
+        city,
+        state,
+        "centerLatitude",
+        "centerLongitude"
+      FROM "ServiceArea"
+      WHERE 
+        status = ${ServiceAreaStatus.ACTIVE}
+        AND boundary IS NOT NULL
+        AND ST_Contains(
+          boundary,
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+        )
+      LIMIT 1
+    `;
+
+    const serviceArea = result[0] || null;
+
+    // Cache the result (even if null)
+    if (serviceArea) {
+      await setCachedServiceArea(latitude, longitude, serviceArea);
+    }
+
+    return serviceArea;
+  }
+
+  /**
+   * Validate if a point is within a service area polygon
+   * If not serviceable, finds the nearest service area
+   * 
+   * @param latitude - Point latitude
+   * @param longitude - Point longitude
+   * @returns Validation result with service area info and nearest alternative
+   */
+  static async validatePointInServiceArea(
+    latitude: number,
+    longitude: number
+  ): Promise<PointInServiceAreaResult> {
+    // Validate coordinates
+    if (!this.validateCoordinates(latitude, longitude)) {
+      throw new Error('Invalid coordinates provided');
+    }
+
+    // Check if point is within any service area
+    const serviceArea = await this.findServiceAreaForPoint(latitude, longitude);
+
+    if (serviceArea) {
+      return {
+        isServiceable: true,
+        serviceArea,
+        nearestServiceArea: null,
+        distanceToNearest: null,
+      };
+    }
+
+    // Point is not serviceable, find nearest service area
+    const nearestResult = await prisma.$queryRaw<
+      Array<ServiceAreaInfo & { distance: number }>
+    >`
+      SELECT 
+        id,
+        name,
+        city,
+        state,
+        "centerLatitude",
+        "centerLongitude",
+        ST_Distance(
+          boundary::geography,
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+        ) / 1000 as distance
+      FROM "ServiceArea"
+      WHERE 
+        status = ${ServiceAreaStatus.ACTIVE}
+        AND boundary IS NOT NULL
+      ORDER BY distance ASC
+      LIMIT 1
+    `;
+
+    const nearest = nearestResult[0];
+
+    return {
+      isServiceable: false,
+      serviceArea: null,
+      nearestServiceArea: nearest
+        ? {
+            id: nearest.id,
+            name: nearest.name,
+            city: nearest.city,
+            state: nearest.state,
+            centerLatitude: nearest.centerLatitude,
+            centerLongitude: nearest.centerLongitude,
+          }
+        : null,
+      distanceToNearest: nearest ? Math.round(nearest.distance * 100) / 100 : null,
+    };
+  }
+
+  /**
+   * Calculate the center point of a polygon using turf.js
+   * 
+   * @param wkt - WKT string representation of polygon
+   * @returns Center point as { latitude, longitude }
+   */
+  static calculatePolygonCenterFromWKT(wkt: string): {
+    latitude: number;
+    longitude: number;
+  } {
+    const geoJson = wktToGeoJson(wkt);
+    return calculatePolygonCenter(geoJson);
+  }
+
+  /**
+   * Check if a polygon overlaps with existing service areas
+   * Uses ST_Overlaps, ST_Contains, and ST_Within for comprehensive overlap detection
+   * 
+   * @param wkt - WKT string representation of polygon to check
+   * @param excludeId - Optional service area ID to exclude from check (for updates)
+   * @returns Overlap result with details of overlapping areas
+   */
+  static async checkPolygonOverlap(
+    wkt: string,
+    excludeId?: string
+  ): Promise<PolygonOverlapResult> {
+    const excludeFilter = excludeId
+      ? Prisma.sql`AND id != ${excludeId}`
+      : Prisma.empty;
+
+    const overlaps = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        overlapArea: number;
+        totalArea: number;
+      }>
+    >`
+      WITH new_polygon AS (
+        SELECT ST_GeomFromText(${wkt}, 4326) as geom
+      ),
+      overlapping_areas AS (
+        SELECT 
+          sa.id,
+          sa.name,
+          ST_Area(ST_Intersection(sa.boundary, np.geom)::geography) / 1000000 as "overlapArea",
+          ST_Area(sa.boundary::geography) / 1000000 as "totalArea"
+        FROM "ServiceArea" sa, new_polygon np
+        WHERE 
+          sa.status = ${ServiceAreaStatus.ACTIVE}
+          AND sa.boundary IS NOT NULL
+          ${excludeFilter}
+          AND (
+            ST_Overlaps(sa.boundary, np.geom)
+            OR ST_Contains(sa.boundary, np.geom)
+            OR ST_Within(sa.boundary, np.geom)
+          )
+      )
+      SELECT 
+        id,
+        name,
+        "overlapArea",
+        "totalArea"
+      FROM overlapping_areas
+      WHERE "overlapArea" > 0
+    `;
+
+    const overlappingAreas = overlaps.map((overlap) => ({
+      id: overlap.id,
+      name: overlap.name,
+      overlapPercentage: Math.round((overlap.overlapArea / overlap.totalArea) * 100 * 100) / 100,
+    }));
+
+    return {
+      hasOverlap: overlappingAreas.length > 0,
+      overlappingAreas,
+    };
+  }
+
+  /**
+   * Calculate the area of a polygon in square kilometers using PostGIS
+   * 
+   * @param wkt - WKT string representation of polygon
+   * @returns Area in square kilometers
+   */
+  static async calculatePolygonAreaFromWKT(wkt: string): Promise<number> {
+    const result = await prisma.$queryRaw<Array<{ area: number }>>`
+      SELECT 
+        ST_Area(ST_GeomFromText(${wkt}, 4326)::geography) / 1000000 as area
+    `;
+
+    return Math.round(result[0].area * 100) / 100; // Two decimal precision
   }
 }

@@ -50,16 +50,16 @@ ALTER TABLE "LocationHistory" ADD CONSTRAINT "LocationHistory_orderId_fkey" FORE
 ALTER TABLE "LocationHistory" ADD CONSTRAINT "LocationHistory_deliveryPartnerId_fkey" FOREIGN KEY ("deliveryPartnerId") REFERENCES "DeliveryPartner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Add PostGIS geography columns
-ALTER TABLE "Vendor" ADD COLUMN location geography(POINT, 4326);
-ALTER TABLE "Address" ADD COLUMN location geography(POINT, 4326);
-ALTER TABLE "DeliveryPartner" ADD COLUMN currentLocation geography(POINT, 4326);
-ALTER TABLE "LocationHistory" ADD COLUMN location geography(POINT, 4326);
+ALTER TABLE "Vendor" ADD COLUMN IF NOT EXISTS location geography(POINT, 4326);
+ALTER TABLE "Address" ADD COLUMN IF NOT EXISTS location geography(POINT, 4326);
+ALTER TABLE "DeliveryPartner" ADD COLUMN IF NOT EXISTS "currentLocation" geography(POINT, 4326);
+ALTER TABLE "LocationHistory" ADD COLUMN IF NOT EXISTS location geography(POINT, 4326);
 
 -- Create spatial indexes
-CREATE INDEX idx_vendor_location ON "Vendor" USING GIST(location);
-CREATE INDEX idx_address_location ON "Address" USING GIST(location);
-CREATE INDEX idx_delivery_partner_location ON "DeliveryPartner" USING GIST(currentLocation);
-CREATE INDEX idx_location_history_location ON "LocationHistory" USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_vendor_location ON "Vendor" USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_address_location ON "Address" USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_delivery_partner_location ON "DeliveryPartner" USING GIST("currentLocation");
+CREATE INDEX IF NOT EXISTS idx_location_history_location ON "LocationHistory" USING GIST(location);
 
 -- Create trigger function to sync Vendor location
 CREATE OR REPLACE FUNCTION sync_vendor_location()

@@ -1,58 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { nearbyVendorsQuerySchema } from '@/schemas/geolocation.schema';
+import { z } from 'zod';
+import { VendorDiscoveryService } from '@/services/vendor-discovery.service';
 import { GeoLocationService } from '@/services/geolocation.service';
 import { prisma } from '@/lib/prisma';
 
+// Validation schema for query parameters
+const nearbyVendorsQuerySchema = z.object({
+  latitude: z.string().transform((val) => parseFloat(val)),
+  longitude: z.string().transform((val) => parseFloat(val)),
+  categoryId: z.string().optional(),
+  maxDistance: z.string().transform((val) => parseFloat(val)).optional(),
+});
+
 /**
  * GET /api/vendors/nearby - Find vendors near a customer location
- * Query parameters: latitude, longitude, radius (optional, default 50km)
+ * Query parameters: latitude, longitude, categoryId (optional), maxDistance (optional)
+ * 
+ * Uses VendorDiscoveryService for location-aware vendor filtering with service area validation
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const latitude = searchParams.get('latitude');
     const longitude = searchParams.get('longitude');
-    const radius = searchParams.get('radius');
+    const categoryId = searchParams.get('categoryId');
+    const maxDistance = searchParams.get('maxDistance');
 
-    // If no location provided, return all active vendors
+    // Validate required parameters
     if (!latitude || !longitude) {
-      const vendors = await prisma.vendor.findMany({
-        where: {
-          status: 'ACTIVE',
-        },
-        select: {
-          id: true,
-          businessName: true,
-          description: true,
-          latitude: true,
-          longitude: true,
-          serviceRadiusKm: true,
-          rating: true,
-          totalOrders: true,
-          imageUrl: true,
-          category: {
-            select: {
-              id: true,
-              name: true,
-              icon: true,
-            },
-          },
-        },
-        orderBy: {
-          rating: 'desc',
-        },
-      });
-
       return NextResponse.json(
         {
-          vendors: vendors.map((v) => ({
-            ...v,
-            distanceKm: null,
-            serviceRadiusKm: Number(v.serviceRadiusKm),
-            rating: Number(v.rating),
-          })),
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'latitude and longitude query parameters are required',
+          },
         },
-        { status: 200 }
+        { status: 400 }
       );
     }
 
@@ -60,25 +43,26 @@ export async function GET(request: NextRequest) {
     const validatedQuery = nearbyVendorsQuerySchema.parse({
       latitude,
       longitude,
-      radius,
+      categoryId: categoryId || undefined,
+      maxDistance: maxDistance || undefined,
     });
 
-    // Find nearby vendors using GeoLocationService
-    const nearbyVendors = await GeoLocationService.findNearbyVendors(
-      validatedQuery.latitude,
-      validatedQuery.longitude,
-      validatedQuery.radius
-    );
+    // Find vendors for location using VendorDiscoveryService
+    const vendors = await VendorDiscoveryService.findVendorsForLocation({
+      latitude: validatedQuery.latitude,
+      longitude: validatedQuery.longitude,
+      categoryId: validatedQuery.categoryId,
+      maxDistanceKm: validatedQuery.maxDistance,
+    });
 
-    // Enrich with additional vendor details
-    const vendorIds = nearbyVendors.map((v) => v.id);
+    // Enrich with category details
+    const vendorIds = vendors.map((v) => v.id);
     const vendorDetails = await prisma.vendor.findMany({
       where: {
         id: { in: vendorIds },
       },
       select: {
         id: true,
-        description: true,
         totalOrders: true,
         category: {
           select: {
@@ -90,13 +74,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Merge nearby vendor data with details
-    const enrichedVendors = nearbyVendors.map((vendor) => {
+    // Merge vendor data with category details
+    const enrichedVendors = vendors.map((vendor) => {
       const details = vendorDetails.find((d) => d.id === vendor.id);
       return {
         id: vendor.id,
         businessName: vendor.businessName,
-        description: details?.description || '',
+        description: vendor.description,
         latitude: vendor.latitude,
         longitude: vendor.longitude,
         serviceRadiusKm: vendor.serviceRadiusKm,
@@ -105,17 +89,37 @@ export async function GET(request: NextRequest) {
         totalOrders: details?.totalOrders || 0,
         imageUrl: vendor.imageUrl,
         category: details?.category || null,
+        serviceAreaId: vendor.serviceAreaId,
+        serviceAreaName: vendor.serviceAreaName,
+        isWithinServiceRadius: vendor.isWithinServiceRadius,
       };
     });
+
+    // Get service area info
+    let serviceArea = null;
+    if (vendors.length > 0) {
+      serviceArea = {
+        id: vendors[0].serviceAreaId,
+        name: vendors[0].serviceAreaName,
+      };
+    } else {
+      // Try to find service area even if no vendors
+      const foundServiceArea = await GeoLocationService.findServiceAreaForPoint(
+        validatedQuery.latitude,
+        validatedQuery.longitude
+      );
+      if (foundServiceArea) {
+        serviceArea = {
+          id: foundServiceArea.id,
+          name: foundServiceArea.name,
+        };
+      }
+    }
 
     return NextResponse.json(
       {
         vendors: enrichedVendors,
-        location: {
-          latitude: validatedQuery.latitude,
-          longitude: validatedQuery.longitude,
-        },
-        searchRadius: validatedQuery.radius,
+        serviceArea,
       },
       { status: 200 }
     );
@@ -139,7 +143,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: {
-            code: 'VALIDATION_ERROR',
+            code: 'INVALID_COORDINATES',
             message: error.message,
           },
         },

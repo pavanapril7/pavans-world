@@ -488,3 +488,286 @@ describe('OrderService - Meal Slots and Fulfillment', () => {
     });
   });
 });
+
+// Mock polygon validation services
+jest.mock('@/services/vendor-discovery.service');
+jest.mock('@/services/geolocation.service');
+
+import { VendorDiscoveryService } from '@/services/vendor-discovery.service';
+import { GeoLocationService } from '@/services/geolocation.service';
+
+describe('OrderService - Polygon Validation', () => {
+  const mockCustomerId = 'customer-123';
+  const mockVendorId = 'vendor-123';
+  const mockAddressId = 'address-123';
+  const mockProductId = 'product-123';
+
+  const baseOrderData = {
+    customerId: mockCustomerId,
+    vendorId: mockVendorId,
+    deliveryAddressId: mockAddressId,
+    items: [{ productId: mockProductId, quantity: 2 }],
+    subtotal: 20.0,
+    deliveryFee: 2.0,
+    tax: 2.0,
+    total: 24.0,
+    fulfillmentMethod: FulfillmentMethod.DELIVERY,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Default mocks for successful order creation
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: mockCustomerId,
+      role: 'CUSTOMER',
+    });
+
+    (prisma.vendor.findUnique as jest.Mock).mockResolvedValue({
+      id: mockVendorId,
+      status: 'ACTIVE',
+    });
+
+    (prisma.product.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: mockProductId,
+        vendorId: mockVendorId,
+        name: 'Test Product',
+        price: 10.0,
+        status: 'AVAILABLE',
+      },
+    ]);
+
+    (FulfillmentService.validateFulfillmentMethod as jest.Mock).mockResolvedValue(true);
+    (FulfillmentService.requiresDeliveryAddress as jest.Mock).mockReturnValue(true);
+  });
+
+  describe('Polygon-based validation', () => {
+    it('should throw "Delivery address is outside serviceable area" when address is not in service area', async () => {
+      const mockAddress = {
+        id: mockAddressId,
+        userId: mockCustomerId,
+        latitude: 12.9716,
+        longitude: 77.5946,
+      };
+
+      (prisma.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+      (GeoLocationService.validatePointInServiceArea as jest.Mock).mockResolvedValue({
+        isServiceable: false,
+        serviceArea: null,
+        nearestServiceArea: null,
+        distanceToNearest: null,
+      });
+
+      await expect(OrderService.createOrder(baseOrderData)).rejects.toThrow(
+        'Delivery address is outside serviceable area'
+      );
+
+      expect(GeoLocationService.validatePointInServiceArea).toHaveBeenCalledWith(
+        12.9716,
+        77.5946
+      );
+    });
+
+    it('should throw "Vendor does not serve this location" when vendor service area mismatch', async () => {
+      const mockAddress = {
+        id: mockAddressId,
+        userId: mockCustomerId,
+        latitude: 12.9716,
+        longitude: 77.5946,
+      };
+
+      (prisma.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+      (GeoLocationService.validatePointInServiceArea as jest.Mock).mockResolvedValue({
+        isServiceable: true,
+        serviceArea: { id: 'area-1', name: 'Test Area' },
+        nearestServiceArea: null,
+        distanceToNearest: null,
+      });
+      (VendorDiscoveryService.canVendorServeAddress as jest.Mock).mockResolvedValue({
+        canServe: false,
+        reason: 'Vendor does not serve this service area',
+      });
+
+      await expect(OrderService.createOrder(baseOrderData)).rejects.toThrow(
+        'Vendor does not serve this location'
+      );
+
+      expect(VendorDiscoveryService.canVendorServeAddress).toHaveBeenCalledWith(
+        mockVendorId,
+        mockAddressId
+      );
+    });
+
+    it('should throw "Address is beyond vendor\'s delivery range" when address exceeds service radius', async () => {
+      const mockAddress = {
+        id: mockAddressId,
+        userId: mockCustomerId,
+        latitude: 12.9716,
+        longitude: 77.5946,
+      };
+
+      (prisma.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+      (GeoLocationService.validatePointInServiceArea as jest.Mock).mockResolvedValue({
+        isServiceable: true,
+        serviceArea: { id: 'area-1', name: 'Test Area' },
+        nearestServiceArea: null,
+        distanceToNearest: null,
+      });
+      (VendorDiscoveryService.canVendorServeAddress as jest.Mock).mockResolvedValue({
+        canServe: false,
+        reason: 'Address is beyond vendor\'s delivery range (10.5 km > 5 km)',
+      });
+
+      await expect(OrderService.createOrder(baseOrderData)).rejects.toThrow(
+        "Address is beyond vendor's delivery range"
+      );
+    });
+
+    it('should successfully create order when all polygon validations pass', async () => {
+      const mockAddress = {
+        id: mockAddressId,
+        userId: mockCustomerId,
+        latitude: 12.9716,
+        longitude: 77.5946,
+      };
+
+      const mockCreatedOrder = {
+        id: 'order-123',
+        orderNumber: 'ORD-001',
+        ...baseOrderData,
+        status: OrderStatus.PENDING,
+      };
+
+      (prisma.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+      (GeoLocationService.validatePointInServiceArea as jest.Mock).mockResolvedValue({
+        isServiceable: true,
+        serviceArea: { id: 'area-1', name: 'Test Area' },
+        nearestServiceArea: null,
+        distanceToNearest: null,
+      });
+      (VendorDiscoveryService.canVendorServeAddress as jest.Mock).mockResolvedValue({
+        canServe: true,
+      });
+
+      (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        return callback({
+          order: {
+            create: jest.fn().mockResolvedValue(mockCreatedOrder),
+          },
+          orderItem: {
+            createMany: jest.fn(),
+          },
+          orderStatusHistory: {
+            create: jest.fn(),
+          },
+          vendor: {
+            update: jest.fn(),
+          },
+          cart: {
+            findUnique: jest.fn().mockResolvedValue(null),
+          },
+        });
+      });
+
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockCreatedOrder);
+
+      const result = await OrderService.createOrder(baseOrderData);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('order-123');
+      expect(GeoLocationService.validatePointInServiceArea).toHaveBeenCalled();
+      expect(VendorDiscoveryService.canVendorServeAddress).toHaveBeenCalled();
+    });
+
+    it('should skip polygon validation when address has no coordinates', async () => {
+      const mockAddress = {
+        id: mockAddressId,
+        userId: mockCustomerId,
+        latitude: null,
+        longitude: null,
+      };
+
+      const mockCreatedOrder = {
+        id: 'order-123',
+        orderNumber: 'ORD-001',
+        ...baseOrderData,
+        status: OrderStatus.PENDING,
+      };
+
+      (prisma.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+
+      (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        return callback({
+          order: {
+            create: jest.fn().mockResolvedValue(mockCreatedOrder),
+          },
+          orderItem: {
+            createMany: jest.fn(),
+          },
+          orderStatusHistory: {
+            create: jest.fn(),
+          },
+          vendor: {
+            update: jest.fn(),
+          },
+          cart: {
+            findUnique: jest.fn().mockResolvedValue(null),
+          },
+        });
+      });
+
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockCreatedOrder);
+
+      const result = await OrderService.createOrder(baseOrderData);
+
+      expect(result).toBeDefined();
+      expect(GeoLocationService.validatePointInServiceArea).not.toHaveBeenCalled();
+      expect(VendorDiscoveryService.canVendorServeAddress).not.toHaveBeenCalled();
+    });
+
+    it('should skip polygon validation for non-delivery fulfillment methods', async () => {
+      const pickupOrderData = {
+        ...baseOrderData,
+        fulfillmentMethod: FulfillmentMethod.PICKUP,
+      };
+
+      const mockCreatedOrder = {
+        id: 'order-123',
+        orderNumber: 'ORD-001',
+        ...pickupOrderData,
+        status: OrderStatus.PENDING,
+      };
+
+      (FulfillmentService.requiresDeliveryAddress as jest.Mock).mockReturnValue(false);
+
+      (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        return callback({
+          order: {
+            create: jest.fn().mockResolvedValue(mockCreatedOrder),
+          },
+          orderItem: {
+            createMany: jest.fn(),
+          },
+          orderStatusHistory: {
+            create: jest.fn(),
+          },
+          vendor: {
+            update: jest.fn(),
+          },
+          cart: {
+            findUnique: jest.fn().mockResolvedValue(null),
+          },
+        });
+      });
+
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockCreatedOrder);
+
+      const result = await OrderService.createOrder(pickupOrderData);
+
+      expect(result).toBeDefined();
+      expect(GeoLocationService.validatePointInServiceArea).not.toHaveBeenCalled();
+      expect(VendorDiscoveryService.canVendorServeAddress).not.toHaveBeenCalled();
+    });
+  });
+});

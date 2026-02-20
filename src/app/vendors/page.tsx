@@ -1,24 +1,27 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { Search, Star, MapPin } from "lucide-react";
+import { useSelector } from "react-redux";
+import { Search, MapPin, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VendorListWithDistance } from "@/components/VendorListWithDistance";
+import { selectSelectedAddress } from "@/lib/redux/slices/locationSlice";
 
-interface Vendor {
+interface VendorWithDistance {
   id: string;
   businessName: string;
   description: string;
+  categoryId: string;
+  latitude: number;
+  longitude: number;
+  serviceRadiusKm: number;
+  distanceKm: number;
+  isActive: boolean;
+  imageUrl: string | null;
   rating: number;
-  totalOrders: number;
-  status: string;
-  category: {
-    id: string;
-    name: string;
-  };
-  serviceArea: {
-    name: string;
-  };
+  serviceAreaId: string;
+  serviceAreaName: string;
+  isWithinServiceRadius: boolean;
 }
 
 interface Category {
@@ -28,11 +31,20 @@ interface Category {
 }
 
 export default function VendorsPage() {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const selectedAddress = useSelector(selectSelectedAddress);
+  
+  const [vendors, setVendors] = useState<VendorWithDistance[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchCategories = async () => {
     try {
@@ -51,32 +63,48 @@ export default function VendorsPage() {
   };
 
   const fetchVendors = useCallback(async () => {
+    // If no address is selected, don't fetch vendors
+    if (!selectedAddress) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
+      
       const params = new URLSearchParams();
+      params.append("latitude", selectedAddress.latitude.toString());
+      params.append("longitude", selectedAddress.longitude.toString());
+      
       if (selectedCategory) {
         params.append("categoryId", selectedCategory);
       }
-      params.append("status", "ACTIVE");
 
-      const response = await fetch(`/api/vendors?${params.toString()}`);
+      const response = await fetch(`/api/vendors/nearby?${params.toString()}`);
+      
       if (response.ok) {
         const data = await response.json();
         setVendors(data.vendors || []);
       } else {
-        console.error("Failed to fetch vendors:", response.status);
+        const errorData = await response.json();
+        setError(errorData.error?.message || "Failed to fetch vendors");
         setVendors([]);
       }
     } catch (error) {
       console.error("Failed to fetch vendors:", error);
+      setError("Failed to fetch vendors. Please try again.");
       setVendors([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory]);
+  }, [selectedAddress, selectedCategory]);
 
   useEffect(() => {
     fetchCategories();
+  }, []);
+
+  useEffect(() => {
     fetchVendors();
   }, [fetchVendors]);
 
@@ -84,10 +112,32 @@ export default function VendorsPage() {
     vendor.businessName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Browse Vendors</h1>
+              <p className="text-gray-600 mt-2">
+                Discover local vendors in your area
+              </p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+              <MapPin className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Loading...
+              </h3>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation removed - now in root layout */}
-
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="space-y-6">
           <div>
@@ -97,106 +147,71 @@ export default function VendorsPage() {
             </p>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search vendors..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={selectedCategory === "" ? "default" : "outline"}
-              onClick={() => setSelectedCategory("")}
-              size="sm"
-            >
-              All Categories
-            </Button>
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? "default" : "outline"}
-                onClick={() => setSelectedCategory(category.id)}
-                size="sm"
-              >
-                {category.name}
-              </Button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse"
-                >
-                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              ))}
-            </div>
-          ) : filteredVendors.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No vendors found</p>
-              <p className="text-gray-400 mt-2">
-                Try adjusting your filters or search query
+          {/* Show prompt if no address is selected */}
+          {!selectedAddress ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+              <MapPin className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Select Your Delivery Address
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Please select a delivery address from the header to see vendors that deliver to your location.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredVendors.map((vendor) => (
-                <Link
-                  key={vendor.id}
-                  href={`/vendors/${vendor.id}`}
-                  className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow p-6"
+            <>
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search vendors..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Category Filters */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedCategory === "" ? "default" : "outline"}
+                  onClick={() => setSelectedCategory("")}
+                  size="sm"
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  All Categories
+                </Button>
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? "default" : "outline"}
+                    onClick={() => setSelectedCategory(category.id)}
+                    size="sm"
+                  >
+                    {category.name}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {vendor.businessName}
-                      </h3>
-                      <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                        {vendor.category.name}
-                      </span>
-                    </div>
-                    {vendor.status === "ACTIVE" ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        Open
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                        Closed
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {vendor.description}
-                  </p>
-
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="font-medium">{Number(vendor.rating).toFixed(1)}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="w-4 h-4" />
-                      <span>{vendor.serviceArea.name}</span>
+                      <h3 className="text-sm font-semibold text-red-900">Error</h3>
+                      <p className="text-sm text-red-800 mt-1">{error}</p>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  <div className="mt-3 text-xs text-gray-400">
-                    {vendor.totalOrders} orders completed
-                  </div>
-                </Link>
-              ))}
-            </div>
+              {/* Vendor List */}
+              <VendorListWithDistance 
+                vendors={filteredVendors} 
+                isLoading={loading}
+              />
+            </>
           )}
         </div>
       </main>

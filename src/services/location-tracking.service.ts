@@ -25,15 +25,15 @@ export interface DeliveryRoute {
 
 export class LocationTrackingService {
   /**
-   * Update delivery partner location during active delivery
-   * Verifies delivery partner has active delivery, validates coordinates,
-   * updates current location, creates history record, and calculates ETA
+   * Update delivery partner location
+   * - If delivery partner has active delivery: updates location, creates history, calculates ETA
+   * - If delivery partner is available: updates location only (for matching purposes)
    */
   static async updateDeliveryPartnerLocation(
     deliveryPartnerId: string,
     latitude: number,
     longitude: number
-  ): Promise<{ eta: number; orderId: string }> {
+  ): Promise<{ eta: number | null; orderId: string | null }> {
     // Validate coordinates
     if (!GeoLocationService.validateCoordinates(latitude, longitude)) {
       throw new Error('Invalid coordinates provided');
@@ -61,68 +61,83 @@ export class LocationTrackingService {
       throw new Error('Delivery partner not found');
     }
 
-    // Verify delivery partner has active delivery
+    // Check if delivery partner has active delivery
     const activeOrder = deliveryPartner.orders[0];
-    if (!activeOrder) {
-      throw new Error('No active delivery found');
-    }
 
-    // Verify delivery address has coordinates
-    if (!activeOrder.deliveryAddress.latitude || !activeOrder.deliveryAddress.longitude) {
-      throw new Error('Delivery address does not have coordinates');
-    }
+    // Case 1: Has active delivery - update location, create history, calculate ETA
+    if (activeOrder) {
+      // Verify delivery address has coordinates
+      if (!activeOrder.deliveryAddress.latitude || !activeOrder.deliveryAddress.longitude) {
+        throw new Error('Delivery address does not have coordinates');
+      }
 
-    // Calculate distance and ETA to destination
-    const distanceKm = await GeoLocationService.calculateDistance(
-      latitude,
-      longitude,
-      activeOrder.deliveryAddress.latitude,
-      activeOrder.deliveryAddress.longitude
-    );
-    const eta = GeoLocationService.calculateETA(distanceKm);
-
-    // Update delivery partner location and create history record in transaction
-    await prisma.$transaction(async (tx) => {
-      // Update current location
-      await tx.deliveryPartner.update({
-        where: { id: deliveryPartnerId },
-        data: {
-          currentLatitude: latitude,
-          currentLongitude: longitude,
-          lastLocationUpdate: new Date(),
-        },
-      });
-
-      // Create location history record
-      await tx.locationHistory.create({
-        data: {
-          orderId: activeOrder.id,
-          deliveryPartnerId,
-          latitude,
-          longitude,
-          timestamp: new Date(),
-        },
-      });
-    });
-
-    // Trigger WebSocket notification (non-blocking, degraded mode if unavailable)
-    const wsClient = getWebSocketClient();
-    if (wsClient) {
-      // Fire and forget - don't await to avoid blocking
-      wsClient.triggerLocationUpdate({
-        deliveryId: activeOrder.id,
+      // Calculate distance and ETA to destination
+      const distanceKm = await GeoLocationService.calculateDistance(
         latitude,
         longitude,
-        eta,
-      }).catch((error) => {
-        // Error already logged in WebSocketClient
-        console.error('WebSocket notification failed, continuing in degraded mode');
+        activeOrder.deliveryAddress.latitude,
+        activeOrder.deliveryAddress.longitude
+      );
+      const eta = GeoLocationService.calculateETA(distanceKm);
+
+      // Update delivery partner location and create history record in transaction
+      await prisma.$transaction(async (tx) => {
+        // Update current location
+        await tx.deliveryPartner.update({
+          where: { id: deliveryPartnerId },
+          data: {
+            currentLatitude: latitude,
+            currentLongitude: longitude,
+            lastLocationUpdate: new Date(),
+          },
+        });
+
+        // Create location history record
+        await tx.locationHistory.create({
+          data: {
+            orderId: activeOrder.id,
+            deliveryPartnerId,
+            latitude,
+            longitude,
+            timestamp: new Date(),
+          },
+        });
       });
+
+      // Trigger WebSocket notification (non-blocking, degraded mode if unavailable)
+      const wsClient = getWebSocketClient();
+      if (wsClient) {
+        // Fire and forget - don't await to avoid blocking
+        wsClient.triggerLocationUpdate({
+          deliveryId: activeOrder.id,
+          latitude,
+          longitude,
+          eta,
+        }).catch((error) => {
+          // Error already logged in WebSocketClient
+          console.error('WebSocket notification failed, continuing in degraded mode');
+        });
+      }
+
+      return {
+        eta,
+        orderId: activeOrder.id,
+      };
     }
 
+    // Case 2: No active delivery - just update location (for matching purposes)
+    await prisma.deliveryPartner.update({
+      where: { id: deliveryPartnerId },
+      data: {
+        currentLatitude: latitude,
+        currentLongitude: longitude,
+        lastLocationUpdate: new Date(),
+      },
+    });
+
     return {
-      eta,
-      orderId: activeOrder.id,
+      eta: null,
+      orderId: null,
     };
   }
 

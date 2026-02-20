@@ -157,20 +157,24 @@ model VendorCategory {
 }
 
 model ServiceArea {
-  id        String            @id @default(uuid())
-  name      String
-  city      String
-  state     String
-  pincodes  String[]
-  status    ServiceAreaStatus @default(ACTIVE)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id              String            @id @default(uuid())
+  name            String
+  city            String
+  state           String
+  pincodes        String[]
+  centerLatitude  Float?
+  centerLongitude Float?
+  status          ServiceAreaStatus @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   // Relations
   vendors          Vendor[]
   deliveryPartners DeliveryPartner[]
+  addresses        Address[]
 
   @@index([status])
+  @@index([centerLatitude, centerLongitude])
 }
 
 model Vendor {
@@ -230,27 +234,30 @@ model Product {
 }
 
 model Address {
-  id        String   @id @default(uuid())
-  userId    String
-  label     String
-  street    String
-  landmark  String
-  city      String
-  state     String
-  pincode   String
-  latitude  Float?
-  longitude Float?
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String       @id @default(uuid())
+  userId        String
+  label         String
+  street        String
+  landmark      String
+  city          String
+  state         String
+  pincode       String
+  latitude      Float?
+  longitude     Float?
+  serviceAreaId String?
+  isDefault     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders Order[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceArea ServiceArea? @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  orders      Order[]
 
   @@index([userId])
   @@index([pincode])
   @@index([latitude, longitude])
+  @@index([serviceAreaId])
 }
 
 model DeliveryPartner {

@@ -16,6 +16,7 @@ import { NavActions } from './NavActions';
 import { NavItem, NavigationTheme, UserSession } from './navigation-types';
 import { isNavItemActive } from './navigation-utils';
 import { cn } from '@/lib/utils';
+import { AddressSelector } from '@/components/AddressSelector';
 
 interface DesktopNavProps {
   items: NavItem[];
@@ -30,6 +31,8 @@ interface DesktopNavProps {
  */
 function DesktopNavComponent({ items, theme, session, cartCount }: DesktopNavProps) {
   const pathname = usePathname();
+  
+  const isCustomer = session?.user?.role === 'CUSTOMER';
   
   return (
     <div className="flex items-center justify-between h-16">
@@ -123,7 +126,12 @@ function DesktopNavComponent({ items, theme, session, cartCount }: DesktopNavPro
         </NavigationMenu>
       </div>
       
-      <NavActions session={session} cartCount={cartCount} />
+      <div className="flex items-center space-x-4">
+        {/* Address Selector - Only for customers */}
+        {isCustomer && <AddressSelector />}
+        
+        <NavActions session={session} cartCount={cartCount} />
+      </div>
     </div>
   );
 }

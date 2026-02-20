@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Package, Clock, Navigation, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DeliveryPartnerStatusToggle } from '@/components/DeliveryPartnerStatusToggle';
 
 interface DeliveryRequest {
   id: string;
@@ -158,6 +159,10 @@ export default function AvailableDeliveriesPage() {
 
   return (
     <div>
+      <div className="mb-6">
+        <DeliveryPartnerStatusToggle />
+      </div>
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Available Deliveries</h1>
         <Button onClick={fetchAvailableDeliveries} variant="outline">

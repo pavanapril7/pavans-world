@@ -23,6 +23,7 @@ import { NavActions } from './NavActions';
 import { NavItem, NavigationTheme, UserSession } from './navigation-types';
 import { isNavItemActive } from './navigation-utils';
 import { cn } from '@/lib/utils';
+import { AddressSelector } from '@/components/AddressSelector';
 
 interface MobileNavProps {
   items: NavItem[];
@@ -46,6 +47,7 @@ function MobileNavComponent({
   onToggle 
 }: MobileNavProps) {
   const pathname = usePathname();
+  const isCustomer = session?.user?.role === 'CUSTOMER';
   
   const handleNavigation = () => {
     onToggle(false);
@@ -66,6 +68,13 @@ function MobileNavComponent({
               <NavLogo theme={theme} />
             </SheetTitle>
           </SheetHeader>
+          
+          {/* Address Selector - Only for customers */}
+          {isCustomer && (
+            <div className="mt-4 px-2">
+              <AddressSelector />
+            </div>
+          )}
           
           <nav className="mt-6">
             <Accordion type="single" collapsible className="w-full">

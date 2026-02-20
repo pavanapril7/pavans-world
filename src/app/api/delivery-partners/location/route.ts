@@ -19,7 +19,9 @@ const locationUpdateRateLimit = rateLimit({
 
 /**
  * POST /api/delivery-partners/location
- * Update delivery partner's current location during active delivery
+ * Update delivery partner's current location
+ * - If delivery partner has active delivery: updates location, creates history, returns ETA
+ * - If delivery partner is available: updates location for matching purposes
  */
 export async function POST(request: NextRequest) {
   try {
@@ -87,27 +89,33 @@ export async function POST(request: NextRequest) {
 
     const { latitude, longitude } = validationResult.data;
 
-    // Update location and get ETA
+    // Update location (works with or without active delivery)
     const result = await LocationTrackingService.updateDeliveryPartnerLocation(
       deliveryPartner.id,
       latitude,
       longitude
     );
 
-    // TODO: Trigger WebSocket location broadcast
-    // This will be implemented when WebSocket server is set up
-    // await triggerWebSocketLocationUpdate(result.orderId, latitude, longitude, result.eta);
+    // Build response based on whether there's an active delivery
+    const responseData: any = {
+      latitude,
+      longitude,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (result.orderId && result.eta !== null) {
+      // Has active delivery - include ETA and order info
+      responseData.orderId = result.orderId;
+      responseData.eta = result.eta;
+      responseData.message = 'Location updated with ETA';
+    } else {
+      // No active delivery - just location update
+      responseData.message = 'Location updated (available for matching)';
+    }
 
     return NextResponse.json({
       success: true,
-      data: {
-        orderId: result.orderId,
-        eta: result.eta,
-        latitude,
-        longitude,
-        timestamp: new Date().toISOString(),
-      },
-      message: 'Location updated successfully',
+      data: responseData,
     });
   } catch (error) {
     console.error('Error updating delivery partner location:', error);
@@ -123,18 +131,6 @@ export async function POST(request: NextRequest) {
           },
         },
         { status: 400 }
-      );
-    }
-
-    if (errorMessage.includes('No active delivery')) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'FORBIDDEN',
-            message: 'Cannot update location: no active delivery assigned',
-          },
-        },
-        { status: 403 }
       );
     }
 
